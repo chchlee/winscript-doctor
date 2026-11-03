@@ -1,0 +1,73 @@
+name: Desktop build and install packages
+
+# Packaging is opt-in. This workflow does not publish Releases or push commits.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: ${{ matrix.target }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            target: windows-amd64
+          - runner: ubuntu-24.04
+            target: linux-amd64
+          - runner: macos-15
+            target: darwin-arm64
+          - runner: macos-15-intel
+            target: darwin-amd64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.3'
+          cache: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Linux build libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+          sh -n scripts/install-linux.sh scripts/build.sh scripts/dev.sh scripts/package.sh scripts/test.sh
+      - name: Frontend dependencies
+        run: npm ci --prefix frontend
+      - name: Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+      - name: Native desktop build
+        run: node scripts/desktop.mjs build
+      - name: Core and package layout tests
+        run: |
+          go test ./...
+          node --test scripts/desktop.test.mjs
+          npm --prefix frontend test
+      - name: Browser setup
+        working-directory: frontend
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: UI interaction tests
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
+        run: node node_modules/@playwright/test/cli.js test
+      - name: Native install packages
+        run: node scripts/desktop.mjs package
+      - uses: actions/upload-artifact@v7
+        with:
+          name: WinScriptDoctor-${{ matrix.target }}
+          path: bin/packages/*
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-srv-ops-01",
+  "demo": true,
+  "host": {
+    "name": "SRV-OPS-01",
+    "os": "Windows Server 2022",
+    "account": "CONTOSO\\kim.admin",
+    "permission": "standard",
+    "collectedAt": "2026-11-03T09:30:00+09:00"
+  },
+  "scripts": [
+    {
+      "id": "script-backup",
+      "name": "backup.ps1",
+      "path": "D:\\Ops\\Scripts\\backup.ps1",
+      "engine": "PowerShell",
+      "taskName": "NightlyBackup",
+      "status": "attention",
+      "lastRun": "2026-11-03T02:00:00+09:00",
+      "description": "매일 새벽 운영 파일을 백업합니다."
+    },
+    {
+      "id": "script-ad-export",
+      "name": "export-ad-users.ps1",
+      "path": "D:\\Ops\\Scripts\\export-ad-users.ps1",
+      "engine": "PowerShell",
+      "taskName": "ExportADUsers",
+      "status": "attention",
+      "lastRun": "2026-11-03T06:30:00+09:00",
+      "description": "사용자 목록을 내부 보고용 파일로 내보냅니다."
+    },
+    {
+      "id": "script-cleanup",
+      "name": "cleanup-logs.bat",
+      "path": "D:\\Ops\\Scripts\\cleanup-logs.bat",
+      "engine": "Batch",
+      "taskName": "CleanupLogs",
+      "status": "healthy",
+      "lastRun": "2026-11-03T03:00:00+09:00",
+      "description": "보관 기간이 지난 합성 로그를 정리하는 예제입니다."
+    },
+    {
+      "id": "script-sync",
+      "name": "sync-reports.cmd",
+      "path": "D:\\Ops\\Scripts\\sync-reports.cmd",
+      "engine": "Batch",
+      "taskName": "SyncReports",
+      "status": "healthy",
+      "lastRun": "2026-11-03T07:00:00+09:00",
+      "description": "보고서 폴더를 동기화하는 예제 작업입니다."
+    },
+    {
+      "id": "script-inventory",
+      "name": "collect-inventory.ps1",
+      "path": "D:\\Ops\\Scripts\\collect-inventory.ps1",
+      "engine": "PowerShell",
+      "taskName": "CollectInventory",
+      "status": "healthy",
+      "lastRun": "2026-11-03T08:00:00+09:00",
+      "description": "서버의 기본 자산 정보를 수집합니다."
+    },
+    {
+      "id": "script-notify",
+      "name": "legacy-notify.ps1",
+      "path": "D:\\Ops\\Legacy\\legacy-notify.ps1",
+      "engine": "PowerShell",
+      "taskName": "LegacyNotify",
+      "status": "unknown",
+      "lastRun": "미확인",
+      "description": "호출 경로가 동적으로 구성되어 추가 확인이 필요합니다."
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-working-directory",
+      "ruleId": "WSD002",
+      "title": "작업 폴더가 다릅니다",
+      "explanation": "수동 기준은 D:\\Ops\\Scripts, 예약 실행은 C:\\Windows\\System32에서 수집됐습니다. 상대 경로로 읽는 설정 파일이 있다면 영향을 받을 수 있습니다.",
+      "scriptId": "script-backup",
+      "severity": "warning",
+      "evidenceState": "candidate",
+      "nextStep": "backup.ps1에서 상대 경로를 사용하는지 확인하고 진단용 작업의 작업 폴더를 비교하세요.",
+      "evidence": [
+        "수동 기준 작업 폴더: D:\\Ops\\Scripts",
+        "예약 실행 작업 폴더: C:\\Windows\\System32",
+        "환경 차이는 관측했지만 업무 스크립트의 실패 원인은 확정하지 않았습니다."
+      ]
+    },
+    {
+      "id": "finding-engine",
+      "ruleId": "WSD003",
+      "title": "실행 엔진이 다릅니다",
+      "explanation": "수동 기준은 PowerShell 7, 예약 실행은 Windows PowerShell 5.1을 사용합니다.",
+      "scriptId": "script-backup",
+      "severity": "info",
+      "evidenceState": "observed",
+      "nextStep": "스크립트와 모듈이 지원하는 PowerShell 버전을 확인하세요.",
+      "evidence": [
+        "수동 기준: C:\\Program Files\\PowerShell\\7\\pwsh.exe / 7.6.3",
+        "예약 실행: C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe / 5.1.20348.2849"
+      ]
+    },
+    {
+      "id": "finding-module",
+      "ruleId": "WSD004",
+      "title": "계정별 모듈 경로를 확인하세요",
+      "explanation": "사용자 모듈 경로가 예약 실행의 검색 경로에 포함되지 않은 합성 사례입니다. 모듈 Import 성공 여부는 확인하지 않았습니다.",
+      "scriptId": "script-ad-export",
+      "severity": "warning",
+      "evidenceState": "candidate",
+      "nextStep": "실행 계정의 PSModulePath와 명시된 모듈 의존성을 비교하세요.",
+      "evidence": [
+        "수동 기준에만 사용자 모듈 경로가 있습니다.",
+        "모듈을 자동으로 불러오거나 설치하지 않았습니다."
+      ]
+    },
+    {
+      "id": "finding-network",
+      "ruleId": "WSD005",
+      "title": "대상 계정의 접근 여부가 미확인입니다",
+      "explanation": "계정과 작업 설정만으로 네트워크 자원의 실제 접근 권한을 확인할 수 없습니다.",
+      "scriptId": "script-notify",
+      "severity": "info",
+      "evidenceState": "unknown",
+      "nextStep": "같은 실행 계정에서 지정한 자원 접근 결과를 별도 수집하세요.",
+      "evidence": [
+        "업무 스크립트와 네트워크 접근 테스트를 실행하지 않았습니다.",
+        "동적으로 조합한 대상 경로는 정적 분석 범위 밖입니다."
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "id": "comparison-backup",
+      "taskName": "NightlyBackup",
+      "scriptName": "backup.ps1",
+      "manual": {
+        "label": "수동 실행 기준",
+        "captureMethod": "기존 셸에서 수집",
+        "capturedAt": "2026-11-03T09:20:00+09:00",
+        "account": "CONTOSO\\kim.admin",
+        "logonType": "Interactive",
+        "engine": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+        "version": "7.6.3",
+        "architecture": "x64",
+        "workingDirectory": "D:\\Ops\\Scripts",
+        "modulePaths": [
+          "C:\\Users\\kim.admin\\Documents\\PowerShell\\Modules",
+          "C:\\Program Files\\PowerShell\\Modules",
+          "C:\\Program Files\\PowerShell\\7\\Modules"
+        ],
+        "networkAccess": "접근 확인"
+      },
+      "scheduled": {
+        "label": "예약 실행 기준",
+        "captureMethod": "별도 진단 작업에서 수집",
+        "capturedAt": "2026-11-03T09:22:00+09:00",
+        "account": "CONTOSO\\svc_backup",
+        "logonType": "Password",
+        "engine": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "version": "5.1.20348.2849",
+        "architecture": "x64",
+        "workingDirectory": "C:\\Windows\\System32",
+        "modulePaths": [
+          "C:\\Program Files\\WindowsPowerShell\\Modules",
+          "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules"
+        ],
+        "networkAccess": "미확인"
+      }
+    },
+    {
+      "id": "comparison-sync",
+      "taskName": "SyncReports",
+      "scriptName": "sync-reports.cmd",
+      "manual": {
+        "label": "이전 실행 기준",
+        "captureMethod": "기준 스냅샷에서 가져옴",
+        "capturedAt": "2026-11-02T07:00:00+09:00",
+        "account": "CONTOSO\\svc_report",
+        "logonType": "Password",
+        "engine": "C:\\Windows\\System32\\cmd.exe",
+        "version": "해당 없음",
+        "architecture": "x64",
+        "workingDirectory": "D:\\Ops\\Scripts",
+        "modulePaths": [
+          "해당 없음"
+        ],
+        "networkAccess": "접근 확인"
+      },
+      "scheduled": {
+        "label": "예약 실행 기준",
+        "captureMethod": "별도 진단 작업에서 수집",
+        "capturedAt": "2026-11-03T07:00:00+09:00",
+        "account": "CONTOSO\\svc_report",
+        "logonType": "Password",
+        "engine": "C:\\Windows\\System32\\cmd.exe",
+        "version": "해당 없음",
+        "architecture": "x64",
+        "workingDirectory": "D:\\Ops\\Scripts",
+        "modulePaths": [
+          "해당 없음"
+        ],
+        "networkAccess": "접근 확인"
+      }
+    }
+  ]
+}

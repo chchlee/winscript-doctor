@@ -1,0 +1,31 @@
+version: '3'
+
+tasks:
+  frontend:
+    dir: frontend
+    cmds:
+      - npm run build
+  build:
+    desc: 현재 운영체제의 데스크톱 앱 빌드
+    cmds:
+      - node scripts/desktop.mjs build
+  package:
+    desc: 현재 운영체제의 설치 패키지 생성
+    cmds:
+      - task: build
+      - node scripts/desktop.mjs package
+  build:dev:
+    cmds:
+      - node scripts/desktop.mjs build --dev
+  run:
+    cmds:
+      - node scripts/desktop.mjs run --dev
+  dev:
+    cmds:
+      - wails3 dev -config ./build/config.yml -port 5173
+  test:
+    cmds:
+      - task: frontend
+      - go test ./...
+      - node --test scripts/desktop.test.mjs
+      - npm --prefix frontend test

@@ -151,3 +151,33 @@ test('가져오기 취소 후 늦게 끝난 파일 확인이 새 창에 나타�
   await expect(page.locator('.import-preview')).toHaveCount(0)
   await expect(page.getByRole('button', { name: '가져오기', exact: true })).toBeDisabled()
 })
+
+test('브라우저에서는 로컬 수집 가능 환경을 안내한다', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '로컬 수집', exact: true }).click()
+  await expect(page.getByRole('dialog')).toContainText('Windows 데스크톱 앱')
+  await expect(page.getByRole('button', { name: '폴더 선택 후 수집' })).toBeDisabled()
+  await page.locator('.dialog-actions').getByRole('button', { name: '닫기', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '운영 스크립트 점검' })).toBeVisible()
+})
+
+test('수집 스냅샷의 부분 결과와 모든 작업 참조를 표시하고 검색한다', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '스냅샷 열기', exact: true }).click()
+  await page.getByLabel('스냅샷 JSON 파일').setInputFiles('../fixtures/collected-workspace.json')
+  await page.getByRole('button', { name: '가져오기', exact: true }).click()
+  const scope = page.getByRole('region', { name: '수집 범위와 제한' })
+  await expect(scope).toContainText('부분 수집')
+  await scope.locator('summary').click()
+  await expect(scope).toContainText('동적·지원하지 않는 스크립트 호출')
+  await page.getByPlaceholder('스크립트, 작업 이름으로 검색').fill('Weekly')
+  await expect(page.locator('.inventory-table tbody tr')).toHaveCount(1)
+  await page.locator('.task-links summary').click()
+  await expect(page.locator('.task-links')).toContainText('S4U')
+  await expect(page.locator('.task-links')).toContainText('Weekly')
+  await expect(page.getByRole('button', { name: /이 작업의 환경 비교/ })).toHaveCount(0)
+  await page.setViewportSize({ width: 1024, height: 768 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+})

@@ -2,6 +2,77 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.collection-summary {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  background: var(--card);
+  font-size: 0.78rem;
+}
+.collection-summary-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  align-items: center;
+}
+.collection-summary-heading strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.collection-summary-heading span,
+.collection-summary p,
+.task-links p {
+  color: var(--muted-foreground);
+}
+.collection-root {
+  margin-top: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.collection-summary p {
+  margin-top: 0.4rem;
+}
+.collection-summary details,
+.task-links {
+  margin-top: 0.8rem;
+}
+.collection-summary summary,
+.task-links summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary);
+}
+.collection-summary ul {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.collection-summary li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.task-links {
+  font-size: 0.75rem;
+}
+.task-links dl {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.35rem 0.6rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.task-links dt {
+  color: var(--muted-foreground);
+}
+.task-links dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 /* k-style principles mapped to product-specific semantic tokens. */
 :root {
   font-family:

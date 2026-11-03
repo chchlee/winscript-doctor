@@ -11,6 +11,7 @@ type Workspace struct {
 	Scripts       []Script      `json:"scripts"`
 	Findings      []Finding     `json:"findings"`
 	Comparisons   []ContextPair `json:"comparisons"`
+	Collection    *Collection   `json:"collection,omitempty"`
 }
 
 type Host struct {
@@ -22,14 +23,44 @@ type Host struct {
 }
 
 type Script struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Path        string `json:"path"`
-	Engine      string `json:"engine"`
-	TaskName    string `json:"taskName"`
-	Status      string `json:"status"`
-	LastRun     string `json:"lastRun"`
-	Description string `json:"description"`
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Path        string     `json:"path"`
+	Engine      string     `json:"engine"`
+	TaskName    string     `json:"taskName"`
+	Status      string     `json:"status"`
+	LastRun     string     `json:"lastRun"`
+	Description string     `json:"description"`
+	SHA256      string     `json:"sha256,omitempty"`
+	TaskLinks   []TaskLink `json:"taskLinks,omitempty"`
+}
+
+// Collection records scope and gaps, never raw task arguments or script source.
+type Collection struct {
+	Root          string            `json:"root"`
+	StartedAt     string            `json:"startedAt"`
+	CompletedAt   string            `json:"completedAt"`
+	Status        string            `json:"status"`
+	TaskStatus    string            `json:"taskStatus"`
+	ExaminedTasks int               `json:"examinedTasks"`
+	Issues        []CollectionIssue `json:"issues"`
+}
+
+type CollectionIssue struct {
+	Code  string `json:"code"`
+	Count int    `json:"count"`
+}
+
+// TaskLink is an observed direct reference, not an observed execution context.
+type TaskLink struct {
+	Name             string `json:"name"`
+	Action           int    `json:"action"`
+	Executable       string `json:"executable"`
+	WorkingDirectory string `json:"workingDirectory"`
+	Account          string `json:"account"`
+	LogonType        string `json:"logonType"`
+	LastRunTime      string `json:"lastRunTime"`
+	LastResult       string `json:"lastResult"`
 }
 
 type Finding struct {

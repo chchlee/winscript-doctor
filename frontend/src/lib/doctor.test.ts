@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import demoFixture from '../../../fixtures/demo-workspace.json'
+import collectedFixture from '../../../fixtures/collected-workspace.json'
 import {
   MAX_SNAPSHOT_BYTES,
   compareContexts,
@@ -8,6 +9,9 @@ import {
   loadWorkspace,
   openWorkspace,
   parseSnapshot,
+  collectLocal,
+  cancelCollection,
+  collectionCapabilities,
   type Workspace,
 } from './doctor'
 
@@ -129,7 +133,7 @@ describe('snapshot import boundary', () => {
     [
       'schema version',
       (w: Workspace) => {
-        Reflect.set(w, 'schemaVersion', 2)
+        Reflect.set(w, 'schemaVersion', 3)
       },
     ],
     [
@@ -360,5 +364,62 @@ describe('context comparison parity with Go', () => {
     expect(unknown.changeCount).toBe(0)
     expect(unknown.unknownCount).toBe(3)
     expect(left.modulePaths[0]).toContain('kim.admin')
+  })
+})
+
+describe('collected snapshot contract', () => {
+  it('preserves scope, hashes and every task action while reopening', async () => {
+    const workspace = await parseSnapshot(JSON.stringify(collectedFixture))
+    expect(workspace.collection?.issues).toHaveLength(2)
+    expect(workspace.scripts[0].taskLinks).toHaveLength(2)
+    expect(workspace.scripts[0].sha256).toHaveLength(64)
+    expect(workspace.comparisons).toEqual([])
+    expect(await parseSnapshot(JSON.stringify(workspace))).toEqual(workspace)
+  })
+
+  it.each([
+    'hash',
+    'task',
+    'action',
+    'result',
+    'issue',
+    'count',
+    'raw arguments',
+    'old schema',
+    'time',
+    'completion',
+  ])('rejects invalid %s without echoing input', async (field) => {
+    const w = structuredClone(collectedFixture)
+    if (field === 'hash') w.scripts[0].sha256 = 'PRIVATE_INVALID_VALUE'
+    if (field === 'task') w.scripts[0].taskName = 'PRIVATE_INVALID_VALUE'
+    if (field === 'action') w.scripts[0].taskLinks[0].action = 0
+    if (field === 'result') w.scripts[0].taskLinks[0].lastResult = 'PRIVATE_INVALID_VALUE'
+    if (field === 'issue') w.collection.issues[0].code = 'PRIVATE_INVALID_VALUE'
+    if (field === 'count') w.collection.examinedTasks = -1
+    if (field === 'old schema') w.schemaVersion = 1
+    if (field === 'time') w.collection.completedAt = '2026-11-03T09:00:00Z'
+    if (field === 'completion') w.collection.status = 'complete'
+    if (field === 'raw arguments')
+      Reflect.set(w.scripts[0].taskLinks[0], 'arguments', 'PRIVATE_INVALID_VALUE')
+    await expect(parseSnapshot(JSON.stringify(w))).rejects.not.toThrow('PRIVATE_INVALID_VALUE')
+  })
+
+  it('exposes collection only through the native service and supports cancellation', async () => {
+    expect(await collectionCapabilities()).toBe(false)
+    expect(await cancelCollection()).toBe(false)
+    await expect(collectLocal()).rejects.toThrow('Windows')
+    expect(nativeCall).not.toHaveBeenCalled()
+    nativeTransport()
+    nativeCall.mockResolvedValueOnce({ localCollection: true })
+    expect(await collectionCapabilities()).toBe(true)
+    expect(nativeCall).toHaveBeenLastCalledWith('main.DoctorService.GetCapabilities')
+    nativeCall.mockResolvedValueOnce(collectedFixture)
+    expect((await collectLocal())?.scripts[0].taskLinks).toHaveLength(2)
+    expect(nativeCall).toHaveBeenLastCalledWith('main.DoctorService.CollectLocal')
+    nativeCall.mockResolvedValueOnce(true)
+    expect(await cancelCollection()).toBe(true)
+    expect(nativeCall).toHaveBeenLastCalledWith('main.DoctorService.CancelCollection')
+    nativeCall.mockResolvedValueOnce(null)
+    expect(await collectLocal()).toBeNull()
   })
 })

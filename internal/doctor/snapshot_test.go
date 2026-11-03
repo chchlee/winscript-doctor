@@ -47,7 +47,7 @@ func TestSnapshotRejectsInvalidReferencesAndStates(t *testing.T) {
 		name   string
 		mutate func(*Workspace)
 	}{
-		{"unsupported schema", func(w *Workspace) { w.SchemaVersion = 2 }},
+		{"unsupported schema", func(w *Workspace) { w.SchemaVersion = 3 }},
 		{"duplicate script ID", func(w *Workspace) { w.Scripts[1].ID = w.Scripts[0].ID }},
 		{"duplicate finding ID", func(w *Workspace) { w.Findings[1].ID = w.Findings[0].ID }},
 		{"duplicate comparison ID", func(w *Workspace) { w.Comparisons[1].ID = w.Comparisons[0].ID }},

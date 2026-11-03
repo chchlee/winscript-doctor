@@ -18,6 +18,8 @@ Linux는 GTK4와 WebKitGTK 6.0이 필요합니다. Wails 3.1에서 GTK3 경로�
 
 ZIP을 압축 해제하고 WinScriptDoctor.exe를 실행합니다. WebView2 Runtime이 필요합니다. 설치된 앱·예약 작업·PowerShell 정책을 자동 변경하지 않습니다.
 
+실제 파일을 점검하려면 **로컬 수집 → 폴더 선택 후 수집**을 사용합니다. 읽기 전용으로 해시와 예약 작업 참조를 수집하고 부분 실패를 표시합니다. 저장된 Windows 결과는 Mac·Linux에서도 열 수 있습니다. 자세한 [수집 범위](collection.md)를 확인하세요.
+
 ## macOS 설치
 
 자신의 CPU에 맞는 darwin-arm64 또는 darwin-amd64 ZIP을 압축 해제합니다. 포함된 WinScript Doctor.app을 Applications 또는 사용자 홈의 Applications 폴더로 복사하고 실행합니다. 같은 이름의 기존 앱은 Finder의 교체 확인을 거쳐 직접 관리합니다.

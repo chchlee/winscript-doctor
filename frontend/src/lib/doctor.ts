@@ -1,7 +1,7 @@
 import demoFixture from '../../../fixtures/demo-workspace.json'
 
 export interface Workspace {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
   id: string
   demo: boolean
   host: {
@@ -14,6 +14,7 @@ export interface Workspace {
   scripts: Script[]
   findings: Finding[]
   comparisons: ContextPair[]
+  collection?: Collection
 }
 
 export interface Script {
@@ -25,6 +26,63 @@ export interface Script {
   status: 'attention' | 'healthy' | 'unknown'
   lastRun: string
   description: string
+  sha256?: string
+  taskLinks?: TaskLink[]
+}
+
+export interface TaskLink {
+  name: string
+  action: number
+  executable: string
+  workingDirectory: string
+  account: string
+  logonType: string
+  lastRunTime: string
+  lastResult: string
+}
+
+export const collectionIssueLabels = {
+  directory_unreadable: '폴더 또는 파일 읽기 실패',
+  metadata_limit: '메타데이터 형식·길이 제한',
+  hash_failed: '파일 해시 읽기 실패',
+  file_changed: '수집 중 파일 변경',
+  entry_limit: '폴더 탐색 항목 수 제한',
+  script_limit: '스크립트 수 제한',
+  hash_budget: '전체 해시 읽기 용량 제한',
+  file_size_limit: '파일별 해시 용량 제한',
+  reparse_skipped: '링크·재분석 지점 제외',
+  task_read_failed: '예약 작업 일부 조회 실패',
+  task_limit: '예약 작업 탐색 범위 제한',
+  task_unresolved: '동적·지원하지 않는 스크립트 호출',
+  link_limit: '파일별 예약 작업 참조 수 제한',
+  snapshot_limit: '저장 크기에 따른 항목 제외',
+  time_limit: '수집 시간 제한',
+} as const
+
+export interface Collection {
+  root: string
+  startedAt: string
+  completedAt: string
+  status: 'complete' | 'partial' | 'cancelled'
+  taskStatus: 'complete' | 'partial' | 'unavailable'
+  examinedTasks: number
+  issues: { code: keyof typeof collectionIssueLabels; count: number }[]
+}
+
+export async function collectionCapabilities(): Promise<boolean> {
+  if (!isDesktop()) return false
+  const result = await nativeCall<{ localCollection: boolean }>('GetCapabilities')
+  return result.localCollection === true
+}
+
+export async function collectLocal(): Promise<Workspace | null> {
+  if (!isDesktop()) throw new Error('Windows 데스크톱 앱에서 수집할 수 있습니다')
+  const result = await nativeCall<unknown>('CollectLocal')
+  return result == null ? null : validateWorkspace(result)
+}
+
+export async function cancelCollection(): Promise<boolean> {
+  return isDesktop() ? nativeCall<boolean>('CancelCollection') : false
 }
 
 export interface Finding {
@@ -196,6 +254,86 @@ function choice<T extends string>(value: unknown, choices: readonly T[]): T {
   return value as T
 }
 
+function integer(value: unknown, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max)
+    throw new Error(FORMAT_ERROR)
+  return value
+}
+
+function collection(value: unknown): Collection | undefined {
+  if (value == null) return undefined
+  const source = object(value, [
+    'root',
+    'startedAt',
+    'completedAt',
+    'status',
+    'taskStatus',
+    'examinedTasks',
+    'issues',
+  ])
+  const seen = new Set<string>()
+  const result: Collection = {
+    root: text(source.root, 4096, true),
+    startedAt: timestamp(source.startedAt),
+    completedAt: timestamp(source.completedAt),
+    status: choice(source.status, ['complete', 'partial', 'cancelled']),
+    taskStatus: choice(source.taskStatus, ['complete', 'partial', 'unavailable']),
+    examinedTasks: integer(source.examinedTasks, 0, 5000),
+    issues: list(source.issues, 15).map((item) => {
+      const issue = object(item, ['code', 'count'])
+      const code = choice(
+        issue.code,
+        Object.keys(collectionIssueLabels) as (keyof typeof collectionIssueLabels)[],
+      )
+      if (seen.has(code)) throw new Error(FORMAT_ERROR)
+      seen.add(code)
+      return { code, count: integer(issue.count, 1, 100000) }
+    }),
+  }
+  if (
+    Date.parse(result.completedAt) < Date.parse(result.startedAt) ||
+    (result.status === 'complete' && (result.taskStatus !== 'complete' || result.issues.length > 0))
+  )
+    throw new Error(FORMAT_ERROR)
+  return result
+}
+
+function taskLinks(value: unknown): TaskLink[] | undefined {
+  if (value == null) return undefined
+  const seen = new Set<string>()
+  return list(value, 8).map((item) => {
+    const link = object(item, [
+      'name',
+      'action',
+      'executable',
+      'workingDirectory',
+      'account',
+      'logonType',
+      'lastRunTime',
+      'lastResult',
+    ])
+    const name = text(link.name, 512, true)
+    const action = integer(link.action, 1, 32)
+    const id = name + '\0' + action
+    if (seen.has(id)) throw new Error(FORMAT_ERROR)
+    seen.add(id)
+    const lastRunTime =
+      link.lastRunTime == null || link.lastRunTime === '' ? '' : timestamp(link.lastRunTime)
+    const lastResult = text(link.lastResult, 10)
+    if (lastResult && !/^0x[0-9A-F]{8}$/u.test(lastResult)) throw new Error(FORMAT_ERROR)
+    return {
+      name,
+      action,
+      executable: text(link.executable, 4096, true),
+      workingDirectory: text(link.workingDirectory, 4096),
+      account: text(link.account, 512),
+      logonType: text(link.logonType, 64),
+      lastRunTime,
+      lastResult,
+    }
+  })
+}
+
 function list(value: unknown, maximum: number): unknown[] {
   // Empty collections are valid snapshots. Normalize Go nil slices for the UI.
   if (value == null) return []
@@ -266,8 +404,10 @@ function validateWorkspace(value: unknown): Workspace {
     'scripts',
     'findings',
     'comparisons',
+    'collection',
   ])
-  if (source.schemaVersion !== 1) throw new Error('지원하지 않는 스냅샷 버전입니다')
+  if (source.schemaVersion !== 1 && source.schemaVersion !== 2)
+    throw new Error('지원하지 않는 스냅샷 버전입니다')
   if (source.demo != null && typeof source.demo !== 'boolean') throw new Error(FORMAT_ERROR)
   const host = object(source.host, ['name', 'os', 'account', 'permission', 'collectedAt'])
   const scripts = list(source.scripts, 10_000).map((item): Script => {
@@ -280,7 +420,13 @@ function validateWorkspace(value: unknown): Workspace {
       'status',
       'lastRun',
       'description',
+      'sha256',
+      'taskLinks',
     ])
+    const sha256 = text(script.sha256, 64)
+    if (sha256 && !/^[a-f0-9]{64}$/u.test(sha256)) throw new Error(FORMAT_ERROR)
+    const links = taskLinks(script.taskLinks)
+    if (links?.length && script.taskName !== links[0].name) throw new Error(FORMAT_ERROR)
     return {
       id: text(script.id, 128, true),
       name: text(script.name, 512, true),
@@ -290,6 +436,8 @@ function validateWorkspace(value: unknown): Workspace {
       status: choice(script.status, ['attention', 'healthy', 'unknown']),
       lastRun: text(script.lastRun, 128),
       description: text(script.description, 8192),
+      ...(sha256 ? { sha256 } : {}),
+      ...(links ? { taskLinks: links } : {}),
     }
   })
   const scriptIDs = uniqueIDs(scripts)
@@ -350,8 +498,14 @@ function validateWorkspace(value: unknown): Workspace {
     }
   })
   uniqueIDs(comparisons)
+  const scope = collection(source.collection)
+  if (
+    source.schemaVersion === 1 &&
+    (scope || scripts.some((script) => script.sha256 || script.taskLinks?.length))
+  )
+    throw new Error('수집 메타데이터에는 스냅샷 버전 2가 필요합니다')
   return {
-    schemaVersion: 1,
+    schemaVersion: source.schemaVersion,
     id: text(source.id, 128, true),
     demo: source.demo === true,
     host: {
@@ -364,6 +518,7 @@ function validateWorkspace(value: unknown): Workspace {
     scripts,
     findings,
     comparisons,
+    ...(scope ? { collection: scope } : {}),
   }
 }
 

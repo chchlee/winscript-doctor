@@ -8,7 +8,9 @@ A desktop prototype for investigating differences between manual and scheduled W
 
 The app provides an overview and an execution-context comparison screen using synthetic examples or saved JSON snapshots. Search and filters, evidence details, light/dark themes, JSON import/export, strict validation and native file dialogs are implemented. The interface is currently in Korean.
 
-Live Windows collection, scheduled diagnostic probes, call-graph analysis, baseline comparison and HTML reports are planned. This is an early prototype, not a completed operational diagnostic tool. It does not automatically execute business scripts or modify scheduled tasks.
+Windows read-only collection is implemented: select a local fixed-drive folder to collect PS1/BAT/CMD metadata and SHA-256 hashes, then associate literal references from readable scheduled tasks. Multiple task actions, configured accounts and working directories, recent run times and result codes are preserved. Cancellation retains partial results. It uses native COM without launching PowerShell or executing business scripts. See [collection scope and limits](docs/collection.md).
+
+Scheduled execution-context probes, call-graph analysis, baseline comparison and HTML reports remain planned. Task definitions are configuration observations, not captured runtime environments. This is an early prototype and does not modify existing scheduled tasks.
 
 Unlike a job runner, the intended focus is explaining differences in existing Windows automation: account, logon type, engine, architecture, working directory and module search paths. Differences are observations, not proof of a failure's cause; uncollected values remain unknown.
 
@@ -49,6 +51,6 @@ Packages and SHA256 checksums are written to bin/packages. For browser-only deve
 
 ## Data and license
 
-The schemaVersion 1 JSON format is limited to 2 MiB and rejects unknown fields and invalid references. See fixtures/demo-workspace.json for synthetic input. Operational snapshots may contain internal host names, accounts and paths; keep them out of public issues and commits.
+JSON snapshots support schemaVersion 1 and 2 with a 2 MiB limit. Existing v1 files remain readable; new collections use v2 for hashes, task links and collection scope. Older v1-only apps cannot open v2. Unknown fields and invalid references are rejected. See fixtures/demo-workspace.json and fixtures/collected-workspace.json for synthetic input. Raw task arguments and script source are not saved. Operational snapshots may contain internal host names, accounts and paths; keep them out of public issues and commits.
 
 Project code is MIT licensed. See [third-party notices](THIRD_PARTY_NOTICES.md) for dependency notices.

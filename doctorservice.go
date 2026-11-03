@@ -1,19 +1,68 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"winscriptdoctor/internal/collector"
 	"winscriptdoctor/internal/doctor"
 )
 
 // DoctorService exposes data inspection only. It has no shell execution method.
 type DoctorService struct {
-	app *application.App
+	app              *application.App
+	collectionMu     sync.Mutex
+	collectionCancel context.CancelFunc
+}
+
+func (s *DoctorService) GetCapabilities() map[string]bool {
+	return map[string]bool{"localCollection": collector.Supported()}
+}
+
+func (s *DoctorService) CollectLocal() (*doctor.Workspace, error) {
+	if !collector.Supported() {
+		return nil, errors.New("로컬 수집은 Windows 데스크톱 앱에서 사용할 수 있습니다")
+	}
+	s.collectionMu.Lock()
+	if s.collectionCancel != nil {
+		s.collectionMu.Unlock()
+		return nil, errors.New("이미 수집 중입니다")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.collectionCancel = cancel
+	s.collectionMu.Unlock()
+	defer func() { cancel(); s.collectionMu.Lock(); s.collectionCancel = nil; s.collectionMu.Unlock() }()
+	root, err := s.app.Dialog.OpenFile().SetTitle("수집할 로컬 스크립트 폴더 선택").CanChooseFiles(false).CanChooseDirectories(true).PromptForSingleSelection()
+	if err != nil {
+		return nil, errors.New("폴더 선택 창을 열지 못했습니다")
+	}
+	if root == "" || ctx.Err() != nil {
+		return nil, nil
+	}
+	ctx, timeoutCancel := context.WithTimeout(ctx, 45*time.Second)
+	defer timeoutCancel()
+	workspace, err := collector.CollectLocal(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	return &workspace, nil
+}
+
+func (s *DoctorService) CancelCollection() bool {
+	s.collectionMu.Lock()
+	defer s.collectionMu.Unlock()
+	if s.collectionCancel == nil {
+		return false
+	}
+	s.collectionCancel()
+	return true
 }
 
 func (s *DoctorService) GetWorkspace() (doctor.Workspace, error) {

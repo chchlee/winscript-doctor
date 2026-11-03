@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 2,
+  "id": "synthetic-collection",
+  "demo": true,
+  "host": {
+    "name": "DEMO-COLLECTION",
+    "os": "Windows synthetic example",
+    "account": "EXAMPLE\\operator",
+    "permission": "standard",
+    "collectedAt": "2026-11-03T10:00:00Z"
+  },
+  "scripts": [
+    {
+      "id": "collected-script-1",
+      "name": "job.ps1",
+      "path": "D:\\Synthetic\\job.ps1",
+      "engine": "PowerShell",
+      "taskName": "\\Example\\Nightly",
+      "status": "unknown",
+      "lastRun": "2026-11-03T09:00:00Z",
+      "description": "수집 화면 검증을 위한 합성 예제입니다.",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "taskLinks": [
+        {
+          "name": "\\Example\\Nightly",
+          "action": 1,
+          "executable": "pwsh.exe",
+          "workingDirectory": "D:\\Synthetic",
+          "account": "EXAMPLE\\service",
+          "logonType": "S4U",
+          "lastRunTime": "2026-11-03T09:00:00Z",
+          "lastResult": "0x00000000"
+        },
+        {
+          "name": "\\Example\\Weekly",
+          "action": 2,
+          "executable": "powershell.exe",
+          "workingDirectory": "",
+          "account": "EXAMPLE\\operator",
+          "logonType": "InteractiveToken",
+          "lastRunTime": "",
+          "lastResult": ""
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "collected-finding-1",
+      "ruleId": "WSDC01",
+      "scriptId": "collected-script-1",
+      "title": "예약 작업 직접 참조 확인",
+      "explanation": "저장된 작업 설정을 표현한 합성 예제이며 실제 실행 환경은 아닙니다.",
+      "severity": "info",
+      "evidenceState": "observed",
+      "nextStep": "수동·예약 실행 환경은 별도 프로브로 수집해야 합니다.",
+      "evidence": ["모든 서버·경로·계정·해시는 합성 자료입니다."]
+    }
+  ],
+  "comparisons": [],
+  "collection": {
+    "root": "D:\\Synthetic",
+    "startedAt": "2026-11-03T10:00:00Z",
+    "completedAt": "2026-11-03T10:00:02Z",
+    "status": "partial",
+    "taskStatus": "complete",
+    "examinedTasks": 3,
+    "issues": [
+      { "code": "reparse_skipped", "count": 1 },
+      { "code": "task_unresolved", "count": 1 }
+    ]
+  }
+}

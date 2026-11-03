@@ -66,8 +66,14 @@ func ParseWorkspace(raw []byte) (Workspace, error) {
 }
 
 func validate(workspace Workspace) error {
-	if workspace.SchemaVersion != 1 {
+	if err := validateCollection(workspace.Collection); err != nil {
+		return err
+	}
+	if workspace.SchemaVersion != 1 && workspace.SchemaVersion != 2 {
 		return errors.New("지원하지 않는 스냅샷 버전입니다")
+	}
+	if workspace.SchemaVersion == 1 && workspace.Collection != nil {
+		return errors.New("수집 메타데이터에는 스냅샷 버전 2가 필요합니다")
 	}
 	if !required(workspace.ID, 128) || !required(workspace.Host.Name, 256) || !required(workspace.Host.OS, 256) || !required(workspace.Host.Account, 512) || !oneOf(workspace.Host.Permission, "standard", "elevated", "unknown") || !timestamp(workspace.Host.CollectedAt) {
 		return errors.New("스냅샷과 호스트의 필수 정보를 확인하세요")
@@ -78,6 +84,12 @@ func validate(workspace Workspace) error {
 	scriptIDs, scriptTasks := map[string]bool{}, map[string]int{}
 	scriptStatuses := map[string]string{}
 	for _, script := range workspace.Scripts {
+		if workspace.SchemaVersion == 1 && (script.SHA256 != "" || len(script.TaskLinks) > 0) {
+			return errors.New("수집 메타데이터에는 스냅샷 버전 2가 필요합니다")
+		}
+		if !validScriptCollection(script) {
+			return errors.New("파일 해시와 예약 작업 참조 정보를 확인하세요")
+		}
 		if !required(script.ID, 128) || scriptIDs[script.ID] || !required(script.Name, 512) || !required(script.Path, 4096) || !oneOf(script.Engine, "PowerShell", "Batch") || !oneOf(script.Status, "attention", "healthy", "unknown") || !text(script.TaskName, 512) || !text(script.Description, 8192) || !text(script.LastRun, 128) {
 			return errors.New("스크립트의 필수 정보, 식별자 또는 상태를 확인하세요")
 		}

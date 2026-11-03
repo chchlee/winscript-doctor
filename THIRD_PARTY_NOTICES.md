@@ -5,6 +5,8 @@
 | 구성 요소          | 출처                                        | 라이선스     |
 | ------------------ | ------------------------------------------- | ------------ |
 | Wails              | https://github.com/wailsapp/wails           | MIT          |
+| go-ole             | https://github.com/go-ole/go-ole            | MIT          |
+| golang.org/x/sys   | https://cs.opensource.google/go/x/sys       | BSD 3 Clause |
 | React              | https://github.com/facebook/react           | MIT          |
 | Tailwind CSS       | https://github.com/tailwindlabs/tailwindcss | MIT          |
 | shadcn/ui 컴포넌트 | https://github.com/shadcn-ui/ui             | MIT          |

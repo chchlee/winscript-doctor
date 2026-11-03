@@ -41,6 +41,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils'
 import {
   compareContexts,
+  collectLocal,
+  cancelCollection,
+  collectionCapabilities,
+  collectionIssueLabels,
   exportWorkspace,
   isDesktop,
   loadWorkspace,
@@ -108,10 +112,16 @@ export default function App() {
   const [notice, setNotice] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [collectionOpen, setCollectionOpen] = useState(false)
+  const [canCollect, setCanCollect] = useState(false)
+  const [collecting, setCollecting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [workspaceSource, setWorkspaceSource] = useState<'imported' | 'collected'>('imported')
   const [dark, setDark] = useState(() => localStorage.getItem('wsd-theme') === 'dark')
 
-  function applyWorkspace(next: Workspace) {
+  function applyWorkspace(next: Workspace, source: 'imported' | 'collected' = 'imported') {
     setWorkspace(next)
+    setWorkspaceSource(source)
     setSelectedScript(next.scripts[0]?.id ?? '')
     setSelectedPair(next.comparisons[0]?.id ?? '')
     setError('')
@@ -119,6 +129,11 @@ export default function App() {
 
   useEffect(() => {
     let active = true
+    collectionCapabilities()
+      .then((allowed) => {
+        if (active) setCanCollect(allowed)
+      })
+      .catch(() => {})
     loadWorkspace()
       .then((next) => {
         if (active) applyWorkspace(next)
@@ -134,6 +149,44 @@ export default function App() {
       active = false
     }
   }, [])
+
+  async function handleCollect() {
+    setCollecting(true)
+    setBusy(true)
+    setError('')
+    try {
+      const next = await collectLocal()
+      if (next) {
+        applyWorkspace(next, 'collected')
+        setPage('overview')
+        setNotice(
+          next.collection?.status === 'cancelled'
+            ? '수집을 중단하고 확보한 결과를 표시했습니다.'
+            : '로컬 수집 결과를 표시했습니다. 수집 범위와 제한을 확인하세요.',
+        )
+      }
+      setCollectionOpen(false)
+    } catch {
+      setError(
+        '수집하지 못했습니다. 일반 로컬 고정 디스크의 폴더인지, 현재 계정으로 읽을 수 있는지 확인하세요.',
+      )
+      setCollectionOpen(false)
+    } finally {
+      setCollecting(false)
+      setCancelling(false)
+      setBusy(false)
+    }
+  }
+
+  async function handleCancelCollection() {
+    setCancelling(true)
+    try {
+      await cancelCollection()
+    } catch {
+      setCancelling(false)
+      setError('중단 요청을 전달하지 못했습니다. 현재 읽기 작업이 끝날 때까지 기다려 주세요.')
+    }
+  }
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -330,6 +383,10 @@ export default function App() {
                   </p>
                 </div>
                 <div className="page-actions">
+                  <Button variant="outline" onClick={() => setCollectionOpen(true)} disabled={busy}>
+                    <Monitor size={16} />
+                    로컬 수집
+                  </Button>
                   <Button variant="outline" onClick={handleExport} disabled={!workspace || busy}>
                     <ArrowDownToLine size={16} />
                     결과 저장
@@ -357,10 +414,16 @@ export default function App() {
                     variant="outline"
                     className={workspace.demo ? 'demo-badge' : 'source-badge'}
                   >
-                    {workspace.demo ? '합성 예제' : '가져온 스냅샷'}
+                    {workspace.demo
+                      ? '합성 예제'
+                      : workspaceSource === 'collected'
+                        ? '로컬 수집'
+                        : '가져온 스냅샷'}
                   </Badge>
                 </div>
               )}
+
+              {workspace?.collection && <CollectionSummary workspace={workspace} />}
 
               {busy && !workspace ? (
                 <div className="loading-state" role="status">
@@ -444,14 +507,116 @@ export default function App() {
             <div className="inline-info">
               <Info size={17} />
               <span>
-                이 버전은 저장된 결과를 탐색하고 비교합니다. 운영 스크립트 실행과 자동 수정은
-                수행하지 않습니다.
+                Windows 앱에서 로컬 파일과 예약 작업 설정을 읽거나 저장된 결과를 열 수 있습니다.
+                예약 작업 설정은 실제 실행 환경 관측값과 구분합니다. 운영 스크립트 실행과 자동
+                수정은 수행하지 않습니다.
               </span>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog
+        open={collectionOpen}
+        onOpenChange={(open) => {
+          if (!collecting) setCollectionOpen(open)
+        }}
+      >
+        <DialogContent showCloseButton={!collecting}>
+          <DialogHeader>
+            <DialogTitle>로컬 스크립트 수집</DialogTitle>
+            <DialogDescription>
+              선택한 폴더의 파일과 읽을 수 있는 예약 작업 설정을 연결합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="help-content">
+            <p>
+              PS1·BAT·CMD 파일의 SHA-256과 예약 작업의 계정·실행 파일·작업 폴더·최근 실행 정보를
+              읽습니다. 원본 파일과 작업 설정은 변경하지 않습니다.
+            </p>
+            <p>
+              최대 500개 파일을 수집하며 파일당 16 MiB까지 해시를 읽습니다. 네트워크 공유와 링크
+              폴더는 제외합니다. 제한과 실패는 부분 결과에 표시합니다.
+            </p>
+            {!canCollect && (
+              <div className="inline-info">
+                <Info size={17} />
+                <span>
+                  로컬 수집은 Windows 데스크톱 앱에서 사용할 수 있습니다. 이 환경에서는 저장된
+                  스냅샷을 열어 비교할 수 있습니다.
+                </span>
+              </div>
+            )}
+            {collecting && (
+              <div className="inline-info" role="status">
+                <LoaderCircle className="animate-spin" size={18} />
+                <span>
+                  {cancelling
+                    ? '현재 읽기 작업이 끝나면 중단하고 부분 결과를 보존합니다.'
+                    : '폴더를 선택하면 수집합니다. 파일과 예약 작업을 읽는 중입니다.'}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="dialog-actions">
+            {collecting ? (
+              <Button variant="outline" onClick={handleCancelCollection} disabled={cancelling}>
+                수집 중단
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setCollectionOpen(false)}>
+                  닫기
+                </Button>
+                <Button onClick={handleCollect} disabled={!canCollect}>
+                  폴더 선택 후 수집
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
+  )
+}
+
+function CollectionSummary({ workspace }: { workspace: Workspace }) {
+  const scope = workspace.collection!
+  const status = { complete: '범위 내 수집 완료', partial: '부분 수집', cancelled: '중단한 수집' }[
+    scope.status
+  ]
+  const taskStatus = {
+    complete: '읽기 완료',
+    partial: '일부 읽기 실패',
+    unavailable: '읽기 미완료',
+  }[scope.taskStatus]
+  return (
+    <section className="collection-summary" aria-label="수집 범위와 제한">
+      <div className="collection-summary-heading">
+        <strong>
+          <Monitor size={16} />
+          {status}
+        </strong>
+        <span>
+          해시 {workspace.scripts.filter((script) => script.sha256).length} / 파일{' '}
+          {workspace.scripts.length}개 · 예약 작업 {scope.examinedTasks}개 조회 · {taskStatus}
+        </span>
+      </div>
+      <div className="collection-root mono">{scope.root}</div>
+      <p>선택한 범위의 파일과 작업 설정입니다. 실행 성공 여부와 실제 실행 환경은 미확인입니다.</p>
+      {scope.issues.length > 0 && (
+        <details>
+          <summary>수집 제한·부분 실패 {scope.issues.length}종류 확인</summary>
+          <ul>
+            {scope.issues.map((issue) => (
+              <li key={issue.code}>
+                <span>{collectionIssueLabels[issue.code]}</span>
+                <strong>{issue.count}건</strong>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
   )
 }
 
@@ -471,9 +636,10 @@ function Overview({
   const scripts = useMemo(
     () =>
       workspace.scripts.filter((script) => {
-        const matchesQuery = `${script.name} ${script.taskName} ${script.path}`
-          .toLocaleLowerCase()
-          .includes(query.toLocaleLowerCase())
+        const matchesQuery =
+          `${script.name} ${script.taskName} ${script.path} ${script.taskLinks?.map((link) => link.name).join(' ') ?? ''}`
+            .toLocaleLowerCase()
+            .includes(query.toLocaleLowerCase())
         return (
           matchesQuery &&
           (filter === 'all' ||
@@ -608,6 +774,9 @@ function Overview({
                     </td>
                     <td className="task-cell" title={script.taskName}>
                       {script.taskName || '연결 미확인'}
+                      {(script.taskLinks?.length ?? 0) > 1 && (
+                        <span className="subtle-text"> +{script.taskLinks!.length - 1}</span>
+                      )}
                     </td>
                     <td>
                       <Status status={script.status} />
@@ -653,6 +822,40 @@ function Overview({
               <p className="script-description">{selected.description}</p>
               <div className="path-label">파일 위치</div>
               <div className="path-value mono">{selected.path}</div>
+              {(workspace.collection || selected.sha256) && (
+                <>
+                  <div className="path-label">SHA-256</div>
+                  <div className="path-value mono">
+                    {selected.sha256 || '미수집 · 수집 제한과 실패를 확인하세요'}
+                  </div>
+                </>
+              )}
+              {!!selected.taskLinks?.length && (
+                <details className="task-links">
+                  <summary>예약 작업 설정 {selected.taskLinks.length}개</summary>
+                  <p>저장된 설정입니다. 실제 실행 환경은 별도 수집이 필요합니다.</p>
+                  {selected.taskLinks.map((link) => (
+                    <dl key={link.name + link.action}>
+                      <dt>작업 / 동작</dt>
+                      <dd>
+                        {link.name} / {link.action}
+                      </dd>
+                      <dt>실행 파일</dt>
+                      <dd className="mono">{link.executable}</dd>
+                      <dt>작업 폴더</dt>
+                      <dd className="mono">{link.workingDirectory || '명시되지 않음'}</dd>
+                      <dt>설정 계정</dt>
+                      <dd>{link.account || '미확인'}</dd>
+                      <dt>로그온 방식</dt>
+                      <dd>{link.logonType || '미확인'}</dd>
+                      <dt>최근 실행</dt>
+                      <dd>{link.lastRunTime ? shortTime(link.lastRunTime) : '미확인'}</dd>
+                      <dt>최근 결과 코드</dt>
+                      <dd className="mono">{link.lastResult || '미확인'}</dd>
+                    </dl>
+                  ))}
+                </details>
+              )}
               <div className="detail-separator" />
               <div className="findings-title">
                 확인할 진단 <span>{findings.length}</span>

@@ -18,11 +18,11 @@ Unlike a job runner, the intended focus is explaining differences in existing Wi
 
 ## Platforms
 
-| Platform                          | Package configuration                                 | Verification                                       |
-| --------------------------------- | ----------------------------------------------------- | -------------------------------------------------- |
-| Windows amd64                     | Per-user Setup.exe or portable ZIP; WebView2 required | Installed and uninstalled on Windows 11            |
-| macOS 14+, Apple Silicon / Intel  | ZIP containing an ad-hoc signed .app                  | Native build, install and GUI verification pending |
-| Linux, Ubuntu 24.04+ / Debian 13+ | .deb and portable tar.gz with a user installer        | Native build, install and GUI verification pending |
+| Platform                          | Package configuration                                 | Verification                                             |
+| --------------------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
+| Windows amd64                     | Per-user Setup.exe or portable ZIP; WebView2 required | Installed and uninstalled on Windows 11                  |
+| macOS 14+, Apple Silicon / Intel  | ZIP containing an ad-hoc signed .app                  | Native build, archive, signature and CPU checked         |
+| Linux, Ubuntu 24.04+ / Debian 13+ | .deb and portable tar.gz with a user installer        | .deb installation verified on Ubuntu 24.04 x64 and ARM64 |
 
 Linux uses GTK4 and WebKitGTK 6.0. End users do not need Go or Node. macOS public distribution signing and notarization are not implemented. macOS/Linux are intended to inspect saved Windows snapshots; they do not run BAT files or query a local Windows Task Scheduler.
 

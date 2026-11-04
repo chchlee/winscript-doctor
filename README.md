@@ -46,7 +46,7 @@ Go 1.27.3, Wails 3.1.0, React·TypeScript·Vite, Tailwind CSS, shadcn/ui를 사�
 
 빌드한 Windows amd64 앱은 `bin/WinScriptDoctor.exe`입니다. 실행할 PC에 Microsoft WebView2 Runtime이 필요합니다. PowerShell 7, Go, Node는 **앱 사용자에게 필요하지 않습니다**. 앱은 WebView2를 자동 설치하지 않습니다. [WebView2 공식 배포 안내](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution)
 
-Windows 11에서 실행과 화면 연결을 확인했습니다. macOS·Linux는 연결 코드와 패키지 구조를 보강했으며, 실제 OS에서의 빌드·설치·GUI 검증은 아직 수행하지 않았습니다. Windows Server 및 RDP·각 DPI 조합도 후속 검증 대상입니다.
+Windows 11에서 실행과 설치·제거를 확인했습니다. Ubuntu 24.04 x64·ARM64에서 .deb를 설치했고, macOS Apple Silicon·Intel에서 네이티브 빌드와 압축을 푼 .app의 서명·CPU 유형을 확인했습니다. macOS 공증, Mac·Linux의 데스크톱 GUI 실행, Windows Server 및 RDP·DPI 조합은 후속 검증 대상입니다.
 
 ## 개발
 

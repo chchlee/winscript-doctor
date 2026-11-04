@@ -90,3 +90,5 @@ Windows에서는 기존 scripts/build.ps1, scripts/dev.ps1, scripts/test.ps1을 
 ## 네이티브 빌드 자동화
 
 .github/workflows/desktop-build.yml은 Windows x64, Ubuntu x64·ARM64, Apple Silicon Mac, Intel Mac에서 네이티브 빌드와 패키지를 생성합니다. 수동 실행 또는 기본 브랜치에서 해당 워크플로 파일을 변경할 때 실행합니다. 결과는 빌드 아티팩트로 업로드합니다. 공개 릴리스는 검증 후 별도로 게시합니다.
+
+[v0.1.0 프리뷰](https://github.com/chchlee/winscript-doctor/releases/tag/v0.1.0)에는 설치 파일 8종과 각각의 SHA-256 파일이 있습니다. Windows 11에서 설치·중복 설치 차단·제거와 사용자 파일 보존, Ubuntu 24.04 x64·ARM64에서 .deb 설치와 공유 라이브러리, Mac 두 CPU에서 .app 번들·서명·CPU 유형을 검증했습니다. 자세한 내용은 [배포 검증 기록](release-verification.md)을 참고하세요.

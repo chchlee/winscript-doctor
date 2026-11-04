@@ -55,6 +55,7 @@ jobs:
       - name: Frontend dependencies
         run: npm ci --prefix frontend
       - name: Wails CLI
+        if: runner.os == 'Windows'
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
       - name: Native desktop build
         run: node scripts/desktop.mjs build
@@ -107,7 +108,7 @@ jobs:
           codesign --verify --deep --strict "$app"
           arch=x86_64
           if [ "$RUNNER_ARCH" = ARM64 ]; then arch=arm64; fi
-          lipo -verify_arch "$arch" "$app/Contents/MacOS/WinScriptDoctor"
+          lipo "$app/Contents/MacOS/WinScriptDoctor" -verify_arch "$arch"
       - uses: actions/upload-artifact@v7
         with:
           name: WinScriptDoctor-${{ matrix.target }}

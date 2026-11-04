@@ -18,11 +18,11 @@ Unlike a job runner, the intended focus is explaining differences in existing Wi
 
 ## Platforms
 
-| Platform                          | Package configuration                          | Verification                                       |
-| --------------------------------- | ---------------------------------------------- | -------------------------------------------------- |
-| Windows amd64                     | Portable ZIP, WebView2 required                | Built and run on Windows 11                        |
-| macOS 14+, Apple Silicon / Intel  | ZIP containing an ad-hoc signed .app           | Native build, install and GUI verification pending |
-| Linux, Ubuntu 24.04+ / Debian 13+ | .deb and portable tar.gz with a user installer | Native build, install and GUI verification pending |
+| Platform                          | Package configuration                                 | Verification                                       |
+| --------------------------------- | ----------------------------------------------------- | -------------------------------------------------- |
+| Windows amd64                     | Per-user Setup.exe or portable ZIP; WebView2 required | Installed and uninstalled on Windows 11            |
+| macOS 14+, Apple Silicon / Intel  | ZIP containing an ad-hoc signed .app                  | Native build, install and GUI verification pending |
+| Linux, Ubuntu 24.04+ / Debian 13+ | .deb and portable tar.gz with a user installer        | Native build, install and GUI verification pending |
 
 Linux uses GTK4 and WebKitGTK 6.0. End users do not need Go or Node. macOS public distribution signing and notarization are not implemented. macOS/Linux are intended to inspect saved Windows snapshots; they do not run BAT files or query a local Windows Task Scheduler.
 
@@ -47,7 +47,7 @@ sh scripts/dev.sh
 sh scripts/package.sh
 ```
 
-Packages and SHA256 checksums are written to bin/packages. For browser-only development, run npm run dev in frontend. For tests, follow [CONTRIBUTING.md](CONTRIBUTING.md). The manual GitHub Actions workflow builds each OS natively and does not publish releases automatically.
+See [GitHub Releases](https://github.com/chchlee/winscript-doctor/releases) for downloads and the [installation guide](docs/installation.md) for exact filenames. For local Windows packaging use scripts/package.ps1. Packages and SHA256 checksums are written to bin/packages. For browser-only development, run npm run dev in frontend. For tests, follow [CONTRIBUTING.md](CONTRIBUTING.md). The GitHub Actions workflow uploads native build artifacts for review.
 
 ## Data and license
 

@@ -15,6 +15,7 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { packageLicenses } from './package-licenses.mjs'
 
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url))
 export const version = '0.1.0'
@@ -185,6 +186,31 @@ Description: Windows script snapshot diagnostics
   )
 }
 
+function makeWindowsInstaller(plan, stage, payload, destination) {
+  const build = path.join(stage, 'installer')
+  const installerPayload = path.join(build, 'payload')
+  for (const file of [
+    'WinScriptDoctor.exe',
+    'LICENSE',
+    'INSTALL.md',
+    'THIRD_PARTY_NOTICES.md',
+    'THIRD-PARTY-LICENSES.txt',
+    'LICENSES/shadcn-ui-MIT.txt',
+  ])
+    copy(path.join(payload, file), path.join(installerPayload, file))
+  copy(path.join(plan.root, 'LICENSES/nsis.txt'), path.join(installerPayload, 'LICENSES/nsis.txt'))
+  copy(path.join(plan.root, 'build/windows/installer.nsi'), path.join(build, 'installer.nsi'))
+  copy(path.join(plan.root, 'build/windows/icon.ico'), path.join(build, 'icon.ico'))
+  const compiler =
+    process.env.WSD_MAKENSIS ?? path.join(plan.root, '.local/nsis-tools/nsis-3.13/makensis.exe')
+  run(
+    compiler,
+    ['/INPUTCHARSET', 'UTF8', '/V2', '/WX', `/DAPP_VERSION=${version}`, 'installer.nsi'],
+    { cwd: build },
+  )
+  copy(path.join(build, 'WinScriptDoctorInstaller.exe'), destination)
+}
+
 // Only remove temporary package directories allocated by this invocation.
 export function removeStage(bin, stage) {
   const base = realpathSync(bin)
@@ -215,6 +241,8 @@ function packageDesktop(plan) {
   const payload = path.join(stage, name)
   try {
     stagePackage(plan.root, plan, payload)
+    const licenses = packageLicenses(plan)
+    writeFileSync(path.join(payload, 'THIRD-PARTY-LICENSES.txt'), licenses)
     const extension = plan.os === 'linux' ? '.tar.gz' : '.zip'
     const archive = path.join(output, `${name}${extension}`)
     if (plan.os === 'darwin') {
@@ -244,9 +272,18 @@ function packageDesktop(plan) {
         name,
       ])
     checksum(archive)
+    if (plan.os === 'windows' && plan.arch === 'amd64') {
+      const installer = path.join(output, `${name}-setup.exe`)
+      makeWindowsInstaller(plan, stage, payload, installer)
+      checksum(installer)
+    }
     if (plan.os === 'linux') {
       const debStage = path.join(stage, 'debian')
       stageDeb(plan.root, plan, debStage)
+      writeFileSync(
+        path.join(debStage, 'usr/share/doc/winscript-doctor/THIRD-PARTY-LICENSES.txt'),
+        licenses,
+      )
       const deb = path.join(output, `winscript-doctor_${version}_${plan.arch}.deb`)
       run('dpkg-deb', ['--build', '--root-owner-group', debStage, deb])
       checksum(deb)

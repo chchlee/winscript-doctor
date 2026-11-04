@@ -1,8 +1,12 @@
 name: Desktop build and install packages
 
-# Packaging is opt-in. This workflow does not publish Releases or push commits.
+# Packaging runs on request or when this workflow is changed on the default branch.
+# It uploads artifacts for review; publishing a Release is separate.
 on:
   workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ['.github/workflows/desktop-build.yml']
 
 permissions:
   contents: read
@@ -19,6 +23,8 @@ jobs:
             target: windows-amd64
           - runner: ubuntu-24.04
             target: linux-amd64
+          - runner: ubuntu-24.04-arm
+            target: linux-arm64
           - runner: macos-15
             target: darwin-arm64
           - runner: macos-15-intel
@@ -29,6 +35,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@v7
         with:
           go-version: '1.27.3'
@@ -64,7 +72,42 @@ jobs:
           PLAYWRIGHT_CHANNEL: chromium
         run: node node_modules/@playwright/test/cli.js test
       - name: Native install packages
+        if: runner.os != 'Windows'
         run: node scripts/desktop.mjs package
+      - name: Windows package and installer test
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:WSD_MAKENSIS = & ./scripts/setup-nsis.ps1
+          node scripts/desktop.mjs package
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installer = Get-ChildItem bin/packages/*-setup.exe
+          ./scripts/test-windows-installer.ps1 -Installer $installer.FullName
+      - name: Verify Linux package installation
+        if: runner.os == 'Linux'
+        run: |
+          deb=$(find bin/packages -maxdepth 1 -name '*.deb' -print -quit)
+          sudo apt-get install -y "./$deb"
+          test "$(dpkg-query -W -f='${Status}' winscript-doctor)" = 'install ok installed'
+          cmp bin/winscript-doctor /usr/bin/winscript-doctor
+          test -s /usr/share/doc/winscript-doctor/THIRD-PARTY-LICENSES.txt
+          ldd /usr/bin/winscript-doctor > "$RUNNER_TEMP/wsd-libraries.txt"
+          if grep -q 'not found' "$RUNNER_TEMP/wsd-libraries.txt"; then
+            cat "$RUNNER_TEMP/wsd-libraries.txt"
+            exit 1
+          fi
+      - name: Verify packaged macOS app
+        if: runner.os == 'macOS'
+        run: |
+          zip=$(find bin/packages -maxdepth 1 -name '*.zip' -print -quit)
+          stage=$(mktemp -d)
+          ditto -x -k "$zip" "$stage"
+          app=$(find "$stage" -maxdepth 2 -name 'WinScript Doctor.app' -print -quit)
+          test -n "$app"
+          codesign --verify --deep --strict "$app"
+          arch=x86_64
+          if [ "$RUNNER_ARCH" = ARM64 ]; then arch=arm64; fi
+          lipo -verify_arch "$arch" "$app/Contents/MacOS/WinScriptDoctor"
       - uses: actions/upload-artifact@v7
         with:
           name: WinScriptDoctor-${{ matrix.target }}

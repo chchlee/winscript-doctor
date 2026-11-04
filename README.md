@@ -38,11 +38,11 @@ Go 1.27.3, Wails 3.1.0, React·TypeScript·Vite, Tailwind CSS, shadcn/ui를 사�
 
 | 운영체제 | 대상                             | 설치 패키지                         |
 | -------- | -------------------------------- | ----------------------------------- |
-| Windows  | amd64                            | 포터블 ZIP                          |
+| Windows  | amd64                            | Setup.exe, 포터블 ZIP               |
 | macOS    | 14 이상 Apple Silicon·Intel      | .app이 포함된 ZIP                   |
 | Linux    | Ubuntu 24.04 이상·Debian 13 이상 | .deb, tar.gz와 사용자 설치 스크립트 |
 
-[설치와 플랫폼별 빌드 안내](docs/installation.md)를 참고하세요. macOS·Linux에서도 Windows 스냅샷을 열고 환경을 비교하며, 해당 OS에서 BAT 실행이나 Windows 작업 스케줄러 조회를 수행하지 않습니다.
+[다운로드: GitHub Releases](https://github.com/chchlee/winscript-doctor/releases) · [설치 파일과 플랫폼별 빌드 안내](docs/installation.md). macOS·Linux에서도 Windows 스냅샷을 열고 환경을 비교할 수 있습니다.
 
 빌드한 Windows amd64 앱은 `bin/WinScriptDoctor.exe`입니다. 실행할 PC에 Microsoft WebView2 Runtime이 필요합니다. PowerShell 7, Go, Node는 **앱 사용자에게 필요하지 않습니다**. 앱은 WebView2를 자동 설치하지 않습니다. [WebView2 공식 배포 안내](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution)
 
@@ -72,7 +72,7 @@ cd ..
 
 화면만 개발하려면 `frontend`에서 `npm run dev`를 실행합니다. 브라우저 미리보기는 같은 예제와 비교 규칙을 사용하며 실제 Wails 호출과 구분하여 표시합니다. E2E 테스트는 설치된 Microsoft Edge를 사용합니다.
 
-macOS·Linux에서는 네이티브 라이브러리를 준비한 뒤 `sh scripts/build.sh`, `sh scripts/package.sh`, `sh scripts/dev.sh`를 사용합니다. E2E 테스트는 Playwright Chromium을 준비하여 실행합니다. `.github/workflows/desktop-build.yml`은 각 OS에서 네이티브 빌드와 설치 패키지를 생성하는 수동 실행 전용 워크플로입니다. 저장소 공개나 커밋 푸시만으로 워크플로가 실행되지는 않습니다.
+Windows에서 `.\scripts\package.ps1`은 Setup.exe와 포터블 ZIP을 만듭니다. macOS·Linux에서는 네이티브 라이브러리를 준비한 뒤 `sh scripts/build.sh`, `sh scripts/package.sh`, `sh scripts/dev.sh`를 사용합니다. 데스크톱 빌드 워크플로는 각 OS의 패키지를 아티팩트로 업로드합니다.
 
 ## 구조
 

@@ -405,13 +405,13 @@ describe('collected snapshot contract', () => {
   })
 
   it('exposes collection only through the native service and supports cancellation', async () => {
-    expect(await collectionCapabilities()).toBe(false)
+    expect(await collectionCapabilities()).toEqual({ localCollection: false, serverFiles: false })
     expect(await cancelCollection()).toBe(false)
-    await expect(collectLocal()).rejects.toThrow('Windows')
+    await expect(collectLocal()).rejects.toThrow('데스크톱 앱')
     expect(nativeCall).not.toHaveBeenCalled()
     nativeTransport()
     nativeCall.mockResolvedValueOnce({ localCollection: true })
-    expect(await collectionCapabilities()).toBe(true)
+    expect(await collectionCapabilities()).toEqual({ localCollection: true, serverFiles: false })
     expect(nativeCall).toHaveBeenLastCalledWith('main.DoctorService.GetCapabilities')
     nativeCall.mockResolvedValueOnce(collectedFixture)
     expect((await collectLocal())?.scripts[0].taskLinks).toHaveLength(2)

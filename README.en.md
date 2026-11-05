@@ -8,7 +8,7 @@ A desktop prototype for investigating differences between manual and scheduled W
 
 The app provides an overview and an execution-context comparison screen using synthetic examples or saved JSON snapshots. Search and filters, evidence details, light/dark themes, JSON import/export, strict validation and native file dialogs are implemented. The interface is currently in Korean.
 
-Windows read-only collection is implemented: select a local fixed-drive folder to collect PS1/BAT/CMD metadata and SHA-256 hashes, then associate literal references from readable scheduled tasks. Multiple task actions, configured accounts and working directories, recent run times and result codes are preserved. Cancellation retains partial results. It uses native COM without launching PowerShell or executing business scripts. See [collection scope and limits](docs/collection.md).
+Read-only collection on Windows, macOS and Linux inventories PS1, BAT, CMD, SH and BASH files and computes SHA-256 hashes. On Windows, native COM also associates literal PowerShell and Batch references from readable scheduled tasks. The Windows app can register SMB shares, test directory access and check the readability and hash of a linked file using the current Windows session. [Collection scope and limits](docs/collection.md)
 
 Scheduled execution-context probes, call-graph analysis, baseline comparison and HTML reports remain planned. Task definitions are configuration observations, not captured runtime environments. This is an early prototype and does not modify existing scheduled tasks.
 

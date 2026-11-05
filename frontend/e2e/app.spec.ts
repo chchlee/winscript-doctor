@@ -1,6 +1,83 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
+test('Shell 파일에 공유를 연결하고 명시적으로 읽기 권한과 해시를 확인한다', async ({ page }) => {
+  const workspace = JSON.parse(readFileSync('../fixtures/demo-workspace.json', 'utf8'))
+  workspace.scripts.unshift({
+    id: 'shell-fixture',
+    name: 'backup.bash',
+    path: 'D:/Synthetic/backup.bash',
+    engine: 'Shell',
+    taskName: '',
+    status: 'unknown',
+    lastRun: '미확인',
+    description: '합성 파일',
+  })
+  const share = String.raw`\\ops.example.test\scripts`
+  const relative = String.raw`daily\backup.bash`
+  const hash = 'a'.repeat(64)
+  let shareChecks = 0
+  let fileChecks = 0
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'chrome', { value: { webview: { postMessage() {} } } })
+  })
+  await page.route('**/wails/runtime', async (route) => {
+    const { args } = route.request().postDataJSON()
+    switch (args?.methodName) {
+      case 'main.DoctorService.GetCapabilities':
+        return route.fulfill({ json: { localCollection: true, serverFiles: true } })
+      case 'main.DoctorService.GetWorkspace':
+        return route.fulfill({ json: workspace })
+      case 'main.DoctorService.ValidateServerShare':
+        expect(args.args).toEqual([share])
+        return route.fulfill({ json: share })
+      case 'main.DoctorService.ValidateServerFile':
+        expect(args.args).toEqual(['daily/backup.bash'])
+        return route.fulfill({ json: relative })
+      case 'main.DoctorService.TestServerShare':
+        expect(args.args).toEqual([share])
+        shareChecks++
+        return route.fulfill({ json: { status: 'ok' } })
+      case 'main.DoctorService.InspectServerFile':
+        expect(args.args).toEqual([share, relative])
+        fileChecks++
+        return route.fulfill({
+          json: fileChecks === 1 ? { status: 'denied' } : { status: 'ok', sha256: hash },
+        })
+      default:
+        return route.fulfill({ json: {} })
+    }
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Shell / Bash', exact: true }).click()
+  await expect(page.locator('.inventory-table tbody tr')).toHaveCount(1)
+  await page.getByRole('button', { name: '서버 연결', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '서버 연결' })
+  await dialog.getByLabel('서버 별칭').fill('합성 서버')
+  await dialog.getByLabel('공유 폴더').fill(share)
+  await dialog.getByRole('button', { name: '공유 등록' }).click()
+  await expect(dialog.getByText(share)).toBeVisible()
+  expect(shareChecks).toBe(0)
+  await dialog.getByRole('button', { name: '연결 테스트' }).click()
+  await expect(dialog.getByRole('status')).toContainText('연결 성공')
+  await dialog.getByRole('button', { name: '닫기' }).click()
+
+  const section = page.getByRole('region', { name: '서버 파일 연결' })
+  await section.getByLabel('서버 공유').selectOption({ label: '합성 서버' })
+  await section.getByLabel('공유 기준 파일 경로').fill('daily/backup.bash')
+  await section.getByRole('button', { name: '파일 연결' }).click()
+  await expect(section.getByText('합성 서버 · ' + relative)).toBeVisible()
+  expect(fileChecks).toBe(0)
+  await section.getByRole('button', { name: '읽기·SHA-256 확인' }).click()
+  await expect(section.getByRole('status')).toContainText('접근 거부')
+  await section.getByRole('button', { name: '읽기·SHA-256 확인' }).click()
+  await expect(section.getByRole('status')).toContainText(hash)
+  await page.reload()
+  await expect(section.getByText('합성 서버 · ' + relative)).toBeVisible()
+  expect(shareChecks).toBe(1)
+  expect(fileChecks).toBe(2)
+})
+
 test('검색과 필터가 결과 수와 진단 상세에 반영된다', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '운영 스크립트 점검' })).toBeVisible()
@@ -155,7 +232,7 @@ test('가져오기 취소 후 늦게 끝난 파일 확인이 새 창에 나타�
 test('브라우저에서는 로컬 수집 가능 환경을 안내한다', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: '로컬 수집', exact: true }).click()
-  await expect(page.getByRole('dialog')).toContainText('Windows 데스크톱 앱')
+  await expect(page.getByRole('dialog')).toContainText('데스크톱 앱')
   await expect(page.getByRole('button', { name: '폴더 선택 후 수집' })).toBeDisabled()
   await page.locator('.dialog-actions').getByRole('button', { name: '닫기', exact: true }).click()
   await expect(page.getByRole('heading', { name: '운영 스크립트 점검' })).toBeVisible()

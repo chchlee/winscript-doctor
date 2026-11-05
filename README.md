@@ -2,9 +2,9 @@
 
 An early desktop prototype for inspecting Windows PowerShell/BAT snapshots and comparing execution contexts. Built with Go, Wails, React, Tailwind CSS and shadcn/ui. See [English quick start](README.en.md).
 
-Windows 서버의 PowerShell·BAT 스크립트와 예약 작업을 연결하고 실행 환경의 차이를 보여주는 데스크톱 앱입니다. Windows·Linux·macOS용 빌드와 설치 패키지 경로를 제공합니다.
+PowerShell·BAT·Shell 스크립트와 해시를 정리하고 Windows 예약 작업의 실행 환경 차이를 보여주는 데스크톱 앱입니다. Windows·Linux·macOS용 빌드와 설치 패키지 경로를 제공합니다.
 
-현재 구현은 **Windows 읽기 전용 로컬 수집과 환경 비교 GUI를 제공하는 초기 개발 버전**입니다. 선택한 폴더의 파일과 예약 작업의 명시적인 참조를 수집하거나 저장된 JSON을 탐색합니다. 실제 수동·예약 실행 환경 프로브, 서버 기준본 비교와 HTML 보고서는 후속 단계입니다.
+현재 구현은 **읽기 전용 파일 수집과 환경 비교 GUI를 제공하는 초기 개발 버전**입니다. 선택한 폴더의 파일을 수집하거나 저장된 JSON을 탐색할 수 있습니다. Windows에서는 예약 작업의 명시적인 참조와 SMB 공유 파일도 연결할 수 있습니다.
 
 기존 Windows 자동화에서 “수동 실행과 예약 실행의 조건이 왜 다른가”를 설명하는 것이 목표입니다. 현재 수집기는 파일과 저장된 예약 작업 설정을 읽습니다. 실제 실행 환경을 관측하는 프로브와 장애 원인 진단의 완성은 별도 단계입니다.
 
@@ -15,7 +15,9 @@ Windows 서버의 PowerShell·BAT 스크립트와 예약 작업을 연결하고 
 ## 구현된 기능
 
 - 스크립트 검색, 상태·엔진 필터, 선택한 스크립트의 진단 근거 확인
-- Windows 폴더 선택 → PS1·BAT·CMD와 SHA-256 수집, 예약 작업 직접 참조와 여러 작업의 연결 보존
+- Windows·macOS·Linux에서 PS1·BAT·CMD·SH·BASH 파일과 SHA-256 수집
+- Windows 예약 작업의 PowerShell·BAT·CMD 직접 참조와 여러 작업의 연결 보존
+- Windows에서 SMB 공유 등록·연결 테스트와 연결한 파일의 읽기·SHA-256 확인
 - 작업의 실행 파일·계정·로그온 방식·작업 폴더·최근 실행 시각·결과 코드 확인
 - 수집 중단과 부분 결과 보존, 링크 제외·권한 부족·변경 중인 파일·용량 제한 표시
 - 두 실행 환경의 계정·로그온 방식·엔진·버전·비트 수·폴더·모듈 경로·네트워크 접근 비교
@@ -26,7 +28,7 @@ Windows 서버의 PowerShell·BAT 스크립트와 예약 작업을 연결하고 
 
 첫 실행의 SRV-OPS-01 및 CONTOSO 계정은 모두 합성 예제입니다. 화면에 예제 여부와 수집 시각을 표시하며, 미확인 항목은 환경 차이 건수에 포함하지 않습니다.
 
-Windows 앱의 **로컬 수집**에서 폴더를 선택합니다. Go에서 작업 스케줄러 COM API를 읽으며 PowerShell 프로세스를 실행하지 않습니다. 기본 제한은 파일 500개, 파일별 해시 16 MiB·전체 256 MiB이며 네트워크 공유와 재분석 지점은 제외합니다. [수집 범위와 스냅샷 형식](docs/collection.md)에 제한과 해석을 정리했습니다.
+데스크톱 앱의 **로컬 수집**에서 폴더를 선택합니다. 기본 제한은 파일 500개, 파일별 해시 16 MiB·전체 256 MiB입니다. Windows SMB 경로는 **서버 연결**에서 등록하고 테스트할 수 있습니다. [수집 범위와 스냅샷 형식](docs/collection.md)
 
 ## 기술과 디자인
 

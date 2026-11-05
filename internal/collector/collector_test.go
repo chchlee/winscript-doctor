@@ -48,17 +48,23 @@ func TestReadOnlyCollectionRoundTrip(t *testing.T) {
 	body := "Write-Output 'SYNTHETIC_NEVER_EXECUTE'"
 	file := writeScript(t, root, "한글 파일.PS1", body)
 	writeScript(t, root, "cleanup.cmd", "@echo SYNTHETIC_ONLY")
+	writeScript(t, root, "maintenance.SH", "#!/bin/sh\nprintf synthetic")
+	writeScript(t, root, "backup.bash", "#!/bin/bash\nprintf synthetic")
 	writeScript(t, root, "ignored.txt", "not a script")
 	w, err := Collect(context.Background(), root, emptySource, testHost(), DefaultLimits)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(w.Scripts) != 2 || w.Demo || len(w.Comparisons) != 0 || w.Collection.Status != "complete" {
+	if len(w.Scripts) != 4 || w.Demo || len(w.Comparisons) != 0 || w.Collection.Status != "complete" {
 		t.Fatalf("unexpected result: scripts=%d,status=%s", len(w.Scripts), w.Collection.Status)
 	}
 	hash := sha256.Sum256([]byte(body))
 	found := false
+	shells := 0
 	for _, script := range w.Scripts {
+		if script.Engine == "Shell" && script.SHA256 != "" {
+			shells++
+		}
 		if script.Path == file {
 			found = true
 			if script.SHA256 != hex.EncodeToString(hash[:]) || script.Status != "unknown" || script.TaskName != "" {
@@ -66,8 +72,8 @@ func TestReadOnlyCollectionRoundTrip(t *testing.T) {
 			}
 		}
 	}
-	if !found {
-		t.Fatal("script missing")
+	if !found || shells != 2 {
+		t.Fatal("script or Shell hash missing")
 	}
 	after, _ := os.ReadFile(file)
 	if string(after) != body {
@@ -75,7 +81,7 @@ func TestReadOnlyCollectionRoundTrip(t *testing.T) {
 	}
 	raw, _ := json.Marshal(w)
 	restored, err := doctor.ParseWorkspace(raw)
-	if err != nil || len(restored.Scripts) != 2 || restored.Collection.Root != root {
+	if err != nil || len(restored.Scripts) != 4 || restored.Collection.Root != root {
 		t.Fatal("collection cannot be reopened", err)
 	}
 }
@@ -130,7 +136,12 @@ func TestChangedFileIsNotGivenAStableHash(t *testing.T) {
 	file := writeScript(t, root, "one.ps1", "before")
 	before, _ := os.Lstat(file)
 	writeScript(t, root, "one.ps1", "after-longer")
-	hash, _, reason := hashFile(context.Background(), file, before, 100)
+	dir, err := os.OpenRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dir.Close()
+	hash, _, reason := hashFile(context.Background(), dir, "one.ps1", before, 100)
 	if hash != "" || reason != "file_changed" {
 		t.Fatal("changed file received a stable hash")
 	}

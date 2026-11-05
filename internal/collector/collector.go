@@ -42,6 +42,19 @@ type Limits struct {
 
 var DefaultLimits = Limits{Scripts: 500, Entries: 25000, FileBytes: 16 << 20, HashBytes: 256 << 20}
 
+func scriptEngine(file string) string {
+	switch strings.ToLower(filepath.Ext(file)) {
+	case ".ps1":
+		return "PowerShell"
+	case ".bat", ".cmd":
+		return "Batch"
+	case ".sh", ".bash":
+		return "Shell"
+	default:
+		return ""
+	}
+}
+
 func validText(value string, limit int) bool {
 	if !utf8.ValidString(value) || len(value) > limit {
 		return false
@@ -63,6 +76,14 @@ func Collect(ctx context.Context, root string, source TaskSource, host doctor.Ho
 	if err != nil || !info.IsDir() || isReparse(info) {
 		return doctor.Workspace{}, errors.New("일반 로컬 폴더만 수집할 수 있습니다")
 	}
+	dir, err := os.OpenRoot(absolute)
+	if err != nil {
+		return doctor.Workspace{}, errors.New("선택한 폴더를 열 수 없습니다")
+	}
+	defer dir.Close()
+	if opened, err := dir.Stat("."); err != nil || !os.SameFile(info, opened) {
+		return doctor.Workspace{}, errors.New("수집 폴더가 변경되었습니다. 다시 선택하세요")
+	}
 	if limits.Scripts < 1 || limits.Entries < 1 || limits.FileBytes < 1 || limits.HashBytes < 1 {
 		return doctor.Workspace{}, errors.New("수집 제한을 확인하세요")
 	}
@@ -76,7 +97,7 @@ func Collect(ctx context.Context, root string, source TaskSource, host doctor.Ho
 		}
 	}
 	entries, hashed := 0, int64(0)
-	err = filepath.WalkDir(absolute, func(file string, entry fs.DirEntry, walkErr error) error {
+	err = fs.WalkDir(dir.FS(), ".", func(relative string, entry fs.DirEntry, walkErr error) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -89,7 +110,8 @@ func Collect(ctx context.Context, root string, source TaskSource, host doctor.Ho
 			add("directory_unreadable")
 			return nil
 		}
-		stat, err := entry.Info()
+		file := filepath.Join(absolute, filepath.FromSlash(relative))
+		stat, err := dir.Lstat(relative)
 		if err != nil {
 			add("directory_unreadable")
 			return nil
@@ -101,7 +123,8 @@ func Collect(ctx context.Context, root string, source TaskSource, host doctor.Ho
 			}
 			return nil
 		}
-		if entry.IsDir() || !stat.Mode().IsRegular() || !scriptExtension(file) {
+		engine := scriptEngine(file)
+		if !stat.Mode().IsRegular() || engine == "" {
 			return nil
 		}
 		if len(workspace.Scripts) >= limits.Scripts {
@@ -113,10 +136,7 @@ func Collect(ctx context.Context, root string, source TaskSource, host doctor.Ho
 			return nil
 		}
 		idBytes := sha256.Sum256([]byte(file))
-		script := doctor.Script{ID: "script-" + hex.EncodeToString(idBytes[:12]), Name: entry.Name(), Path: file, Engine: "Batch", Status: "unknown", LastRun: "미확인", Description: "선택한 폴더에서 수집했습니다. 실행 결과와 대상 계정의 접근 권한은 미확인입니다."}
-		if strings.EqualFold(filepath.Ext(file), ".ps1") {
-			script.Engine = "PowerShell"
-		}
+		script := doctor.Script{ID: "script-" + hex.EncodeToString(idBytes[:12]), Name: entry.Name(), Path: file, Engine: engine, Status: "unknown", LastRun: "미확인", Description: "선택한 폴더에서 수집했습니다. 실행 결과와 대상 계정의 접근 권한은 미확인입니다."}
 		switch {
 		case stat.Size() > limits.FileBytes:
 			add("file_size_limit")
@@ -125,7 +145,7 @@ func Collect(ctx context.Context, root string, source TaskSource, host doctor.Ho
 		default:
 			var read int64
 			var reason string
-			script.SHA256, read, reason = hashFile(ctx, file, stat, min(limits.FileBytes, limits.HashBytes-hashed))
+			script.SHA256, read, reason = hashFile(ctx, dir, relative, stat, min(limits.FileBytes, limits.HashBytes-hashed))
 			hashed += read
 			if reason != "" {
 				add(reason)
@@ -194,8 +214,8 @@ func Collect(ctx context.Context, root string, source TaskSource, host doctor.Ho
 			workspace.Collection.TaskStatus = "unavailable"
 			add("task_read_failed")
 		}
-	} else if ctx.Err() == nil {
-		add("task_read_failed")
+	} else if source == nil {
+		workspace.Collection.TaskStatus = "not_applicable"
 	}
 	for i := range workspace.Scripts {
 		script := &workspace.Scripts[i]
@@ -207,6 +227,11 @@ func Collect(ctx context.Context, root string, source TaskSource, host doctor.Ho
 			return x.Name < y.Name
 		})
 		title, explanation := "직접 참조 미발견", "읽을 수 있었던 예약 작업의 명시적인 참조에서 이 파일을 찾지 못했습니다. 동적 호출, 외부 도구, 수집 제한이 있을 수 있으므로 미사용 파일로 판단하지 않습니다."
+		nextStep := "연결된 작업 설정과 해시를 확인하고, 실행 환경 프로브로 수동·예약 조건을 별도로 수집하세요."
+		if source == nil || script.Engine == "Shell" {
+			title, explanation = "예약 작업 참조 미수집", "이 스크립트는 파일 메타데이터와 SHA-256만 수집하는 범위에 포함됩니다."
+			nextStep = "파일 경로와 수집된 해시를 확인하세요."
+		}
 		evidenceState := "unknown"
 		if len(script.TaskLinks) > 0 {
 			evidenceState = "observed"
@@ -220,7 +245,7 @@ func Collect(ctx context.Context, root string, source TaskSource, host doctor.Ho
 				}
 			}
 		}
-		workspace.Findings = append(workspace.Findings, doctor.Finding{ID: "finding-" + script.ID, RuleID: "WSDC01", ScriptID: script.ID, Title: title, Explanation: explanation, Severity: "info", EvidenceState: evidenceState, NextStep: "연결된 작업 설정과 해시를 확인하고, 실행 환경 프로브로 수동·예약 조건을 별도로 수집하세요.", Evidence: []string{"선택한 폴더에서 파일 메타데이터를 읽었습니다. 원본 스크립트는 실행하지 않았습니다."}})
+		workspace.Findings = append(workspace.Findings, doctor.Finding{ID: "finding-" + script.ID, RuleID: "WSDC01", ScriptID: script.ID, Title: title, Explanation: explanation, Severity: "info", EvidenceState: evidenceState, NextStep: nextStep, Evidence: []string{"선택한 폴더에서 파일 메타데이터를 읽었습니다. 원본 스크립트는 실행하지 않았습니다."}})
 	}
 	workspace.Collection.CompletedAt = time.Now().UTC().Format(time.RFC3339)
 	finish := func() {
@@ -277,14 +302,14 @@ func validLink(link doctor.TaskLink) bool {
 	return link.Name != "" && link.Executable != "" && link.Action >= 1 && link.Action <= 32
 }
 
-func hashFile(ctx context.Context, file string, before fs.FileInfo, limit int64) (string, int64, string) {
-	f, err := os.Open(file)
+func hashFile(ctx context.Context, root *os.Root, file string, before fs.FileInfo, limit int64) (string, int64, string) {
+	f, err := root.OpenFile(file, os.O_RDONLY|scriptReadFlags, 0)
 	if err != nil {
 		return "", 0, "hash_failed"
 	}
 	defer f.Close()
 	opened, err := f.Stat()
-	if err != nil || !os.SameFile(before, opened) || isReparse(opened) {
+	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(before, opened) || isReparse(opened) {
 		return "", 0, "file_changed"
 	}
 	hash := sha256.New()
@@ -310,7 +335,7 @@ func hashFile(ctx context.Context, file string, before fs.FileInfo, limit int64)
 		}
 	}
 	after, err := f.Stat()
-	pathInfo, pathErr := os.Lstat(file)
+	pathInfo, pathErr := root.Lstat(file)
 	if err != nil || pathErr != nil || !os.SameFile(before, pathInfo) || isReparse(pathInfo) || before.Size() != after.Size() || !before.ModTime().Equal(after.ModTime()) {
 		return "", read, "file_changed"
 	}

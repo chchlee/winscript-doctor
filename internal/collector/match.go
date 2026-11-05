@@ -89,19 +89,11 @@ func argv(input string) ([]string, bool) {
 	return result, true
 }
 
-func scriptExtension(value string) bool {
-	switch strings.ToLower(path.Ext(strings.ReplaceAll(value, `\`, "/"))) {
-	case ".ps1", ".bat", ".cmd":
-		return true
-	}
-	return false
-}
-
 // directReference supports direct scripts, PowerShell -File and simple cmd /c.
 // The bool distinguishes unsupported script-host expressions from other tasks.
 func directReference(action TaskAction) (string, bool) {
 	executable := strings.Trim(strings.TrimSpace(action.Executable), `"`)
-	if scriptExtension(executable) {
+	if engine := scriptEngine(executable); engine == "Batch" || engine == "PowerShell" {
 		p := windowsPath(executable, action.WorkingDirectory)
 		return p, p == ""
 	}
@@ -151,7 +143,7 @@ func directReference(action TaskAction) (string, bool) {
 	if strings.EqualFold(tokens[0], "call") {
 		tokens = tokens[1:]
 	}
-	if len(tokens) == 0 || !scriptExtension(tokens[0]) || strings.EqualFold(path.Ext(tokens[0]), ".ps1") {
+	if len(tokens) == 0 || scriptEngine(tokens[0]) != "Batch" {
 		return "", true
 	}
 	p := windowsPath(tokens[0], action.WorkingDirectory)

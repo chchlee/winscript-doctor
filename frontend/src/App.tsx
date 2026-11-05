@@ -40,6 +40,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { AppUpdates } from '@/components/AppUpdates'
+import { loadServerProfiles, ScriptServerFile, ServerManager } from '@/components/ServerFiles'
 import appInfo from './version.json'
 import {
   compareContexts,
@@ -60,8 +61,10 @@ import {
 } from '@/lib/doctor'
 
 type Page = 'overview' | 'compare'
-type Filter = 'all' | 'attention' | 'PowerShell' | 'Batch'
+type Filter = 'all' | 'attention' | Script['engine']
 type RowFilter = 'all' | 'changed' | 'unknown'
+
+const engineLabels = { PowerShell: 'PowerShell', Batch: 'BAT / CMD', Shell: 'Shell / Bash' }
 
 const scriptStatus = {
   attention: { label: '확인 필요', className: 'status-warning' },
@@ -115,7 +118,12 @@ export default function App() {
   const [importOpen, setImportOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [collectionOpen, setCollectionOpen] = useState(false)
-  const [canCollect, setCanCollect] = useState(false)
+  const [{ localCollection: canCollect, serverFiles: canConnect }, setCapabilities] = useState({
+    localCollection: false,
+    serverFiles: false,
+  })
+  const [serverOpen, setServerOpen] = useState(false)
+  const [serverProfiles, setServerProfiles] = useState(loadServerProfiles)
   const [collecting, setCollecting] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [workspaceSource, setWorkspaceSource] = useState<'imported' | 'collected'>('imported')
@@ -132,8 +140,8 @@ export default function App() {
   useEffect(() => {
     let active = true
     collectionCapabilities()
-      .then((allowed) => {
-        if (active) setCanCollect(allowed)
+      .then((capabilities) => {
+        if (active) setCapabilities(capabilities)
       })
       .catch(() => {})
     loadWorkspace()
@@ -349,7 +357,15 @@ export default function App() {
                 </TooltipTrigger>
                 <TooltipContent>테마 전환</TooltipContent>
               </Tooltip>
-              <AppUpdates blocked={busy || importOpen || collectionOpen || helpOpen} />
+              {canConnect && (
+                <Button variant="outline" size="sm" onClick={() => setServerOpen(true)}>
+                  <Server size={15} />
+                  서버 연결
+                </Button>
+              )}
+              <AppUpdates
+                blocked={busy || importOpen || collectionOpen || helpOpen || serverOpen}
+              />
               <Button
                 variant="ghost"
                 size="icon"
@@ -441,6 +457,28 @@ export default function App() {
                     selectedId={selectedScript}
                     onSelect={setSelectedScript}
                     onCompare={goToComparison}
+                    serverFile={
+                      canConnect
+                        ? (script) => {
+                            const path = /^windows\b/i.test(workspace.host.os)
+                              ? script.path.replaceAll('/', '\\').toLowerCase()
+                              : script.path
+                            const key = JSON.stringify([
+                              workspace.demo,
+                              workspace.host.name.toLowerCase(),
+                              path,
+                            ])
+                            return (
+                              <ScriptServerFile
+                                key={key}
+                                scriptKey={key}
+                                profiles={serverProfiles}
+                                onManage={() => setServerOpen(true)}
+                              />
+                            )
+                          }
+                        : undefined
+                    }
                   />
                 ) : (
                   <EnvironmentComparison
@@ -491,6 +529,14 @@ export default function App() {
           setNotice('스냅샷을 가져왔습니다.')
         }}
       />
+      {canConnect && (
+        <ServerManager
+          open={serverOpen}
+          onOpenChange={setServerOpen}
+          profiles={serverProfiles}
+          onProfilesChange={setServerProfiles}
+        />
+      )}
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent>
           <DialogHeader>
@@ -510,9 +556,9 @@ export default function App() {
             <div className="inline-info">
               <Info size={17} />
               <span>
-                Windows 앱에서 로컬 파일과 예약 작업 설정을 읽거나 저장된 결과를 열 수 있습니다.
-                예약 작업 설정은 실제 실행 환경 관측값과 구분합니다. 운영 스크립트 실행과 자동
-                수정은 수행하지 않습니다.
+                데스크톱 앱에서 로컬 파일을 읽거나 저장된 결과를 열 수 있습니다. Windows에서는 예약
+                작업 설정도 읽습니다. 예약 작업 설정은 실제 실행 환경 관측값과 구분합니다. 운영
+                스크립트 실행과 자동 수정은 수행하지 않습니다.
               </span>
             </div>
           </div>
@@ -528,24 +574,24 @@ export default function App() {
           <DialogHeader>
             <DialogTitle>로컬 스크립트 수집</DialogTitle>
             <DialogDescription>
-              선택한 폴더의 파일과 읽을 수 있는 예약 작업 설정을 연결합니다.
+              선택한 폴더에서 스크립트 파일을 찾고 SHA-256을 계산합니다.
             </DialogDescription>
           </DialogHeader>
           <div className="help-content">
             <p>
-              PS1·BAT·CMD 파일의 SHA-256과 예약 작업의 계정·실행 파일·작업 폴더·최근 실행 정보를
-              읽습니다. 원본 파일과 작업 설정은 변경하지 않습니다.
+              PS1·BAT·CMD·SH·BASH 파일을 읽습니다. Windows에서는 읽기 가능한 예약 작업의
+              PowerShell·BAT·CMD 직접 참조도 연결합니다.
             </p>
             <p>
-              최대 500개 파일을 수집하며 파일당 16 MiB까지 해시를 읽습니다. 네트워크 공유와 링크
-              폴더는 제외합니다. 제한과 실패는 부분 결과에 표시합니다.
+              최대 500개 파일을 수집하며 파일당 16 MiB까지 해시를 읽습니다. 링크는 제외합니다.
+              Windows에서 네트워크 공유는 서버 연결 메뉴를 사용하세요.
             </p>
             {!canCollect && (
               <div className="inline-info">
                 <Info size={17} />
                 <span>
-                  로컬 수집은 Windows 데스크톱 앱에서 사용할 수 있습니다. 이 환경에서는 저장된
-                  스냅샷을 열어 비교할 수 있습니다.
+                  로컬 수집은 데스크톱 앱에서 사용할 수 있습니다. 이 환경에서는 저장된 스냅샷을 열어
+                  비교할 수 있습니다.
                 </span>
               </div>
             )}
@@ -591,6 +637,7 @@ function CollectionSummary({ workspace }: { workspace: Workspace }) {
     complete: '읽기 완료',
     partial: '일부 읽기 실패',
     unavailable: '읽기 미완료',
+    not_applicable: '이 환경에서는 수집하지 않음',
   }[scope.taskStatus]
   return (
     <section className="collection-summary" aria-label="수집 범위와 제한">
@@ -601,7 +648,10 @@ function CollectionSummary({ workspace }: { workspace: Workspace }) {
         </strong>
         <span>
           해시 {workspace.scripts.filter((script) => script.sha256).length} / 파일{' '}
-          {workspace.scripts.length}개 · 예약 작업 {scope.examinedTasks}개 조회 · {taskStatus}
+          {workspace.scripts.length}개 · 예약 작업{' '}
+          {scope.taskStatus === 'not_applicable'
+            ? taskStatus
+            : `${scope.examinedTasks}개 조회 · ${taskStatus}`}
         </span>
       </div>
       <div className="collection-root mono">{scope.root}</div>
@@ -628,11 +678,13 @@ function Overview({
   selectedId,
   onSelect,
   onCompare,
+  serverFile,
 }: {
   workspace: Workspace
   selectedId: string
   onSelect: (id: string) => void
   onCompare: (script?: Script) => void
+  serverFile?: (script: Script) => React.ReactNode
 }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
@@ -667,7 +719,12 @@ function Overview({
           value={workspace.scripts.length}
           unit="개"
           icon={<FileCode2 size={20} />}
-          detail={`${workspace.scripts.filter((item) => item.engine === 'PowerShell').length} PowerShell · ${workspace.scripts.filter((item) => item.engine === 'Batch').length} BAT / CMD`}
+          detail={(Object.keys(engineLabels) as Script['engine'][])
+            .map(
+              (engine) =>
+                `${workspace.scripts.filter((item) => item.engine === engine).length} ${engineLabels[engine]}`,
+            )
+            .join(' · ')}
         />
         <Summary
           label="확인이 필요한 스크립트"
@@ -726,8 +783,9 @@ function Overview({
               [
                 { id: 'all', label: '전체' },
                 { id: 'attention', label: '확인 필요' },
-                { id: 'PowerShell', label: 'PowerShell' },
-                { id: 'Batch', label: 'BAT / CMD' },
+                { id: 'PowerShell', label: engineLabels.PowerShell },
+                { id: 'Batch', label: engineLabels.Batch },
+                { id: 'Shell', label: engineLabels.Shell },
               ] as const
             ).map((item) => (
               <button
@@ -771,7 +829,7 @@ function Overview({
                         </span>
                         <span>
                           <strong>{script.name}</strong>
-                          <small>{script.engine === 'Batch' ? 'BAT / CMD' : 'PowerShell'}</small>
+                          <small>{engineLabels[script.engine]}</small>
                         </span>
                       </button>
                     </td>
@@ -833,6 +891,7 @@ function Overview({
                   </div>
                 </>
               )}
+              {serverFile?.(selected)}
               {!!selected.taskLinks?.length && (
                 <details className="task-links">
                   <summary>예약 작업 설정 {selected.taskLinks.length}개</summary>

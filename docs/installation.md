@@ -1,6 +1,6 @@
 # 운영체제별 설치와 빌드
 
-WinScript Doctor의 GUI, 스냅샷 가져오기·저장과 Windows 실행 환경 비교를 Windows·macOS·Linux에서 사용할 수 있게 빌드 경로를 구성했습니다. Linux와 macOS에서 BAT를 실행하거나 Windows 작업 스케줄러를 직접 조회하는 기능은 포함하지 않습니다.
+Windows·macOS·Linux에서 스크립트 파일 수집, 스냅샷 가져오기·저장과 환경 비교를 사용할 수 있습니다. 예약 작업 조회와 SMB 공유 검사는 Windows 앱에서 제공합니다.
 
 ## 대상과 파일
 

@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -20,16 +22,14 @@ type DoctorService struct {
 	app              *application.App
 	collectionMu     sync.Mutex
 	collectionCancel context.CancelFunc
+	serverChecking   atomic.Bool
 }
 
 func (s *DoctorService) GetCapabilities() map[string]bool {
-	return map[string]bool{"localCollection": collector.Supported()}
+	return map[string]bool{"localCollection": true, "serverFiles": runtime.GOOS == "windows"}
 }
 
 func (s *DoctorService) CollectLocal() (*doctor.Workspace, error) {
-	if !collector.Supported() {
-		return nil, errors.New("로컬 수집은 Windows 데스크톱 앱에서 사용할 수 있습니다")
-	}
 	s.collectionMu.Lock()
 	if s.collectionCancel != nil {
 		s.collectionMu.Unlock()

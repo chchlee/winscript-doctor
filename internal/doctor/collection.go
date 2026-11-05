@@ -40,12 +40,12 @@ func validateCollection(collection *Collection) error {
 	if collection == nil {
 		return nil
 	}
-	if !required(collection.Root, 4096) || !timestamp(collection.StartedAt) || !timestamp(collection.CompletedAt) || !oneOf(collection.Status, "complete", "partial", "cancelled") || !oneOf(collection.TaskStatus, "complete", "partial", "unavailable") || collection.ExaminedTasks < 0 || collection.ExaminedTasks > 5000 || len(collection.Issues) > 15 {
+	if !required(collection.Root, 4096) || !timestamp(collection.StartedAt) || !timestamp(collection.CompletedAt) || !oneOf(collection.Status, "complete", "partial", "cancelled") || !oneOf(collection.TaskStatus, "complete", "partial", "unavailable", "not_applicable") || collection.ExaminedTasks < 0 || collection.ExaminedTasks > 5000 || len(collection.Issues) > 15 {
 		return errors.New("수집 범위와 상태를 확인하세요")
 	}
 	start, _ := time.Parse(time.RFC3339, collection.StartedAt)
 	end, _ := time.Parse(time.RFC3339, collection.CompletedAt)
-	if end.Before(start) || (collection.Status == "complete" && (collection.TaskStatus != "complete" || len(collection.Issues) > 0)) {
+	if end.Before(start) || (collection.TaskStatus == "not_applicable" && collection.ExaminedTasks != 0) || (collection.Status == "complete" && (!oneOf(collection.TaskStatus, "complete", "not_applicable") || len(collection.Issues) > 0)) {
 		return errors.New("수집 상태와 시각이 일치하지 않습니다")
 	}
 	seen := map[string]bool{}

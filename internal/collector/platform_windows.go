@@ -21,7 +21,8 @@ import (
 	"winscriptdoctor/internal/doctor"
 )
 
-func Supported() bool { return true }
+const scriptReadFlags = 0
+
 func isReparse(info fs.FileInfo) bool {
 	if info.Mode()&fs.ModeSymlink != 0 {
 		return true

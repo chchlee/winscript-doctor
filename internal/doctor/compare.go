@@ -25,7 +25,7 @@ func CompareContexts(left, right ExecutionContext) ComparisonResult {
 	add("account", "실행 계정", left.Account, right.Account, equalFold(left.Account, right.Account), "실행 계정의 차이를 관측했습니다. 대상 계정의 실제 접근 권한은 별도로 확인하세요.")
 	add("logonType", "로그온 방식", left.LogonType, right.LogonType, equalFold(left.LogonType, right.LogonType), "로그온 방식의 차이를 관측했습니다. 해당 방식의 네트워크 접근 조건을 확인하세요.")
 	add("engine", "실행 엔진", left.Engine, right.Engine, pathKey(left.Engine) == pathKey(right.Engine), "실행 파일의 차이를 관측했습니다. 버전과 호환성을 함께 확인하세요.")
-	add("version", "PowerShell 버전", left.Version, right.Version, strings.TrimSpace(left.Version) == strings.TrimSpace(right.Version), "실행 엔진의 버전이 다릅니다. 스크립트와 모듈의 지원 버전을 확인하세요.")
+	add("version", "엔진 버전", left.Version, right.Version, strings.TrimSpace(left.Version) == strings.TrimSpace(right.Version), "실행 엔진의 버전이 다릅니다. 스크립트와 모듈의 지원 버전을 확인하세요.")
 	add("architecture", "프로세스 비트 수", left.Architecture, right.Architecture, equalFold(left.Architecture, right.Architecture), "프로세스 비트 수의 차이를 관측했습니다. 사용하는 모듈과 외부 프로그램을 확인하세요.")
 	add("workingDirectory", "작업 폴더", left.WorkingDirectory, right.WorkingDirectory, pathKey(left.WorkingDirectory) == pathKey(right.WorkingDirectory), "작업 폴더가 다릅니다. 상대 경로 사용 여부를 확인하세요. 차이만으로 장애 원인을 확정하지 않습니다.")
 	add("modulePaths", "모듈 검색 경로", strings.Join(left.ModulePaths, "\n"), strings.Join(right.ModulePaths, "\n"), equalPaths(left.ModulePaths, right.ModulePaths), "모듈 검색 경로나 우선순위가 다릅니다. 모듈 설치와 Import 성공 여부는 별도 확인이 필요합니다.")

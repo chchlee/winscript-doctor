@@ -21,7 +21,7 @@ export interface Script {
   id: string
   name: string
   path: string
-  engine: 'PowerShell' | 'Batch'
+  engine: 'PowerShell' | 'Batch' | 'Shell'
   taskName: string
   status: 'attention' | 'healthy' | 'unknown'
   lastRun: string
@@ -64,19 +64,27 @@ export interface Collection {
   startedAt: string
   completedAt: string
   status: 'complete' | 'partial' | 'cancelled'
-  taskStatus: 'complete' | 'partial' | 'unavailable'
+  taskStatus: 'complete' | 'partial' | 'unavailable' | 'not_applicable'
   examinedTasks: number
   issues: { code: keyof typeof collectionIssueLabels; count: number }[]
 }
 
-export async function collectionCapabilities(): Promise<boolean> {
-  if (!isDesktop()) return false
-  const result = await nativeCall<{ localCollection: boolean }>('GetCapabilities')
-  return result.localCollection === true
+export async function collectionCapabilities(): Promise<{
+  localCollection: boolean
+  serverFiles: boolean
+}> {
+  if (!isDesktop()) return { localCollection: false, serverFiles: false }
+  const result = await nativeCall<{ localCollection: boolean; serverFiles?: boolean }>(
+    'GetCapabilities',
+  )
+  return {
+    localCollection: result.localCollection === true,
+    serverFiles: result.serverFiles === true,
+  }
 }
 
 export async function collectLocal(): Promise<Workspace | null> {
-  if (!isDesktop()) throw new Error('Windows 데스크톱 앱에서 수집할 수 있습니다')
+  if (!isDesktop()) throw new Error('데스크톱 앱에서 수집할 수 있습니다')
   const result = await nativeCall<unknown>('CollectLocal')
   return result == null ? null : validateWorkspace(result)
 }
@@ -153,6 +161,36 @@ export function isDesktop(): boolean {
 async function nativeCall<T>(method: string, ...args: unknown[]): Promise<T> {
   const { Call } = await import('@wailsio/runtime')
   return Call.ByName('main.DoctorService.' + method, ...args) as Promise<T>
+}
+
+export interface ServerCheck {
+  status:
+    | 'ok'
+    | 'denied'
+    | 'missing'
+    | 'unavailable'
+    | 'invalid_file'
+    | 'changed'
+    | 'too_large'
+    | 'busy'
+    | 'timeout'
+  sha256?: string
+}
+
+export function validateServerShare(path: string) {
+  return nativeCall<string>('ValidateServerShare', path)
+}
+
+export function validateServerFile(path: string) {
+  return nativeCall<string>('ValidateServerFile', path)
+}
+
+export function testServerShare(path: string) {
+  return nativeCall<ServerCheck>('TestServerShare', path)
+}
+
+export function inspectServerFile(share: string, file: string) {
+  return nativeCall<ServerCheck>('InspectServerFile', share, file)
 }
 
 export interface UpdateInfo {
@@ -291,7 +329,7 @@ function collection(value: unknown): Collection | undefined {
     startedAt: timestamp(source.startedAt),
     completedAt: timestamp(source.completedAt),
     status: choice(source.status, ['complete', 'partial', 'cancelled']),
-    taskStatus: choice(source.taskStatus, ['complete', 'partial', 'unavailable']),
+    taskStatus: choice(source.taskStatus, ['complete', 'partial', 'unavailable', 'not_applicable']),
     examinedTasks: integer(source.examinedTasks, 0, 5000),
     issues: list(source.issues, 15).map((item) => {
       const issue = object(item, ['code', 'count'])
@@ -306,7 +344,11 @@ function collection(value: unknown): Collection | undefined {
   }
   if (
     Date.parse(result.completedAt) < Date.parse(result.startedAt) ||
-    (result.status === 'complete' && (result.taskStatus !== 'complete' || result.issues.length > 0))
+    (result.taskStatus === 'not_applicable' && result.examinedTasks !== 0) ||
+    (result.status === 'complete' &&
+      (result.taskStatus === 'partial' ||
+        result.taskStatus === 'unavailable' ||
+        result.issues.length > 0))
   )
     throw new Error(FORMAT_ERROR)
   return result
@@ -445,7 +487,7 @@ function validateWorkspace(value: unknown): Workspace {
       id: text(script.id, 128, true),
       name: text(script.name, 512, true),
       path: text(script.path, 4096, true),
-      engine: choice(script.engine, ['PowerShell', 'Batch']),
+      engine: choice(script.engine, ['PowerShell', 'Batch', 'Shell']),
       taskName: text(script.taskName, 512),
       status: choice(script.status, ['attention', 'healthy', 'unknown']),
       lastRun: text(script.lastRun, 128),
@@ -620,7 +662,7 @@ function compareBrowser(left: ExecutionContext, right: ExecutionContext): Compar
   )
   add(
     'version',
-    'PowerShell 버전',
+    '엔진 버전',
     left.version,
     right.version,
     left.version.trim() === right.version.trim(),

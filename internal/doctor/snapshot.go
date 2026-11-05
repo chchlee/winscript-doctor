@@ -90,7 +90,7 @@ func validate(workspace Workspace) error {
 		if !validScriptCollection(script) {
 			return errors.New("파일 해시와 예약 작업 참조 정보를 확인하세요")
 		}
-		if !required(script.ID, 128) || scriptIDs[script.ID] || !required(script.Name, 512) || !required(script.Path, 4096) || !oneOf(script.Engine, "PowerShell", "Batch") || !oneOf(script.Status, "attention", "healthy", "unknown") || !text(script.TaskName, 512) || !text(script.Description, 8192) || !text(script.LastRun, 128) {
+		if !required(script.ID, 128) || scriptIDs[script.ID] || !required(script.Name, 512) || !required(script.Path, 4096) || !oneOf(script.Engine, "PowerShell", "Batch", "Shell") || !oneOf(script.Status, "attention", "healthy", "unknown") || !text(script.TaskName, 512) || !text(script.Description, 8192) || !text(script.LastRun, 128) {
 			return errors.New("스크립트의 필수 정보, 식별자 또는 상태를 확인하세요")
 		}
 		scriptIDs[script.ID] = true

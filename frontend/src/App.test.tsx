@@ -8,7 +8,7 @@ import App from './App'
 const bridge = vi.hoisted(() => ({ collect: vi.fn(), cancel: vi.fn(), load: vi.fn() }))
 vi.mock('@/lib/doctor', async (original) => ({
   ...(await original<typeof import('./lib/doctor')>()),
-  collectionCapabilities: async () => true,
+  collectionCapabilities: async () => ({ localCollection: true, serverFiles: false }),
   collectLocal: bridge.collect,
   cancelCollection: bridge.cancel,
   loadWorkspace: bridge.load,

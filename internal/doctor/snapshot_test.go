@@ -54,7 +54,7 @@ func TestSnapshotRejectsInvalidReferencesAndStates(t *testing.T) {
 		{"unknown finding script", func(w *Workspace) { w.Findings[0].ScriptID = "missing" }},
 		{"unknown comparison script", func(w *Workspace) { w.Comparisons[0].ScriptName = "missing.ps1" }},
 		{"mismatched comparison task", func(w *Workspace) { w.Comparisons[0].TaskName = "DifferentTask" }},
-		{"invalid script engine", func(w *Workspace) { w.Scripts[0].Engine = "Shell" }},
+		{"invalid script engine", func(w *Workspace) { w.Scripts[0].Engine = "Unknown" }},
 		{"invalid script status", func(w *Workspace) { w.Scripts[0].Status = "probably safe" }},
 		{"invalid evidence state", func(w *Workspace) { w.Findings[0].EvidenceState = "certain cause" }},
 		{"invalid severity", func(w *Workspace) { w.Findings[0].Severity = "urgent" }},

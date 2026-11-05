@@ -1,3 +1,4 @@
+import { useLanguage } from '@/components/LanguageProvider'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,12 +15,15 @@ import { checkForUpdate, isDesktop, openUpdateDownload, type UpdateInfo } from '
 const skippedVersionKey = 'wsd-update-skipped-version'
 
 export function AppUpdates({ blocked }: { blocked: boolean }) {
+  const { t } = useLanguage()
+
   const desktop = isDesktop()
   const inFlight = useRef(false)
   const [checking, setChecking] = useState(false)
   const [open, setOpen] = useState(false)
   const [offer, setOffer] = useState<UpdateInfo | null>(null)
   const [message, setMessage] = useState('')
+  const [currentVersion, setCurrentVersion] = useState('')
   const [skip, setSkip] = useState(false)
   const [opening, setOpening] = useState(false)
 
@@ -39,7 +43,8 @@ export function AppUpdates({ blocked }: { blocked: boolean }) {
         setOpen(true)
       } else if (manual) {
         setOffer(null)
-        setMessage(`현재 v${result.currentVersion}입니다. 이 기기에 설치할 새 버전이 없습니다.`)
+        setCurrentVersion(result.currentVersion)
+        setMessage('현재 v{current}입니다. 이 기기에 설치할 새 버전이 없습니다.')
         setOpen(true)
       }
     } catch {
@@ -86,8 +91,8 @@ export function AppUpdates({ blocked }: { blocked: boolean }) {
         variant="ghost"
         size="icon"
         className="icon-button"
-        title="업데이트 확인"
-        aria-label="업데이트 확인"
+        title={t('업데이트 확인')}
+        aria-label={t('업데이트 확인')}
         disabled={blocked || checking}
         onClick={() => void check(true)}
       >
@@ -101,16 +106,23 @@ export function AppUpdates({ blocked }: { blocked: boolean }) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{offer ? '새 업데이트가 있습니다' : '업데이트 확인'}</DialogTitle>
+            <DialogTitle>{t(offer ? '새 업데이트가 있습니다' : '업데이트 확인')}</DialogTitle>
             <DialogDescription>
-              {offer ? `현재 v${offer.currentVersion} → 새 버전 v${offer.version}` : message}
+              {offer
+                ? t('현재 v{current} → 새 버전 v{next}', {
+                    current: offer.currentVersion,
+                    next: offer.version,
+                  })
+                : t(message, { current: currentVersion })}
             </DialogDescription>
           </DialogHeader>
           {offer && (
             <>
               <p className="text-sm text-muted-foreground">
-                브라우저에서 {offer.file}을 다운로드합니다. 열어 둔 결과를 저장하고 앱을 닫은 뒤 새
-                파일을 설치하세요.
+                {t(
+                  '{file}을 브라우저에서 다운로드합니다. 결과를 저장하고 앱을 닫은 뒤 설치하세요.',
+                  { file: offer.file },
+                )}
               </p>
               <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
@@ -119,22 +131,22 @@ export function AppUpdates({ blocked }: { blocked: boolean }) {
                   checked={skip}
                   onChange={(event) => setSkip(event.target.checked)}
                 />
-                이 버전 다시 보지 않기
+                {t('이 버전 다시 보지 않기')}
               </label>
               {message && (
                 <p role="alert" className="text-sm text-destructive">
-                  {message}
+                  {t(message)}
                 </p>
               )}
             </>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={dismiss}>
-              {offer ? '나중에' : '확인'}
+              {t(offer ? '나중에' : '확인')}
             </Button>
             {offer && (
               <Button onClick={() => void download()} disabled={opening}>
-                업데이트 파일 받기
+                {t('업데이트 파일 받기')}
               </Button>
             )}
           </DialogFooter>

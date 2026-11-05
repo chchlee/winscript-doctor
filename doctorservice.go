@@ -23,6 +23,22 @@ type DoctorService struct {
 	collectionMu     sync.Mutex
 	collectionCancel context.CancelFunc
 	serverChecking   atomic.Bool
+	korean           atomic.Bool
+}
+
+func (s *DoctorService) SetLanguage(language string) bool {
+	if language != "en" && language != "ko" {
+		return false
+	}
+	s.korean.Store(language == "ko")
+	return true
+}
+
+func (s *DoctorService) text(english, korean string) string {
+	if s.korean.Load() {
+		return korean
+	}
+	return english
 }
 
 func (s *DoctorService) GetCapabilities() map[string]bool {
@@ -39,7 +55,7 @@ func (s *DoctorService) CollectLocal() (*doctor.Workspace, error) {
 	s.collectionCancel = cancel
 	s.collectionMu.Unlock()
 	defer func() { cancel(); s.collectionMu.Lock(); s.collectionCancel = nil; s.collectionMu.Unlock() }()
-	root, err := s.app.Dialog.OpenFile().SetTitle("수집할 로컬 스크립트 폴더 선택").CanChooseFiles(false).CanChooseDirectories(true).PromptForSingleSelection()
+	root, err := s.app.Dialog.OpenFile().SetTitle(s.text("Choose a local scripts folder", "수집할 로컬 스크립트 폴더 선택")).CanChooseFiles(false).CanChooseDirectories(true).PromptForSingleSelection()
 	if err != nil {
 		return nil, errors.New("폴더 선택 창을 열지 못했습니다")
 	}
@@ -79,8 +95,8 @@ func (s *DoctorService) Compare(left, right doctor.ExecutionContext) doctor.Comp
 
 func (s *DoctorService) OpenWorkspace() (*doctor.Workspace, error) {
 	path, err := s.app.Dialog.OpenFile().
-		SetTitle("WinScript Doctor 스냅샷 열기").
-		AddFilter("JSON 스냅샷", "*.json").
+		SetTitle(s.text("Open a WinScript Doctor snapshot", "WinScript Doctor 스냅샷 열기")).
+		AddFilter(s.text("JSON snapshot", "JSON 스냅샷"), "*.json").
 		CanChooseFiles(true).
 		PromptForSingleSelection()
 	if err != nil {
@@ -120,9 +136,9 @@ func (s *DoctorService) ExportWorkspace(workspace doctor.Workspace) (bool, error
 		return false, errors.New("스냅샷을 저장할 수 없습니다")
 	}
 	path, err := s.app.Dialog.SaveFile().
-		SetMessage("내부용 스냅샷 저장").
+		SetMessage(s.text("Save internal snapshot", "내부용 스냅샷 저장")).
 		SetFilename("winscript-doctor-snapshot.json").
-		AddFilter("JSON 스냅샷", "*.json").
+		AddFilter(s.text("JSON snapshot", "JSON 스냅샷"), "*.json").
 		PromptForSingleSelection()
 	if err != nil {
 		return false, errors.New("파일 선택 창을 열지 못했습니다")

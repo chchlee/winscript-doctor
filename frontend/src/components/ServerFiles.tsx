@@ -1,3 +1,4 @@
+import { useLanguage } from '@/components/LanguageProvider'
 import { useId, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -70,6 +71,8 @@ function loadLink(key: string): Link | null {
 }
 
 function CheckResult({ result, file = false }: { result: ServerCheck; file?: boolean }) {
+  const { t } = useLanguage()
+
   const messages = {
     ok: file ? '파일 읽기 성공' : '연결 성공 · 공유 폴더 목록을 읽었습니다',
     denied: '접근 거부 · 현재 Windows 세션의 인증과 읽기 권한을 확인하세요',
@@ -83,10 +86,10 @@ function CheckResult({ result, file = false }: { result: ServerCheck; file?: boo
   }
   return (
     <div role="status" className="grid min-w-0 gap-1 rounded-md border p-2 text-sm">
-      <p>{messages[result.status] ?? messages.unavailable}</p>
+      <p>{t(messages[result.status] ?? messages.unavailable)}</p>
       {result.sha256 && (
         <div>
-          <div className="path-label">서버 파일 SHA-256</div>
+          <div className="path-label">{t('서버 파일 SHA-256')}</div>
           <div className="mono break-all">{result.sha256}</div>
         </div>
       )}
@@ -105,6 +108,8 @@ export function ServerManager({
   profiles: Profile[]
   onProfilesChange: (profiles: Profile[]) => void
 }) {
+  const { t } = useLanguage()
+
   const [alias, setAlias] = useState('')
   const [path, setPath] = useState('')
   const [error, setError] = useState('')
@@ -171,14 +176,14 @@ export function ServerManager({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>서버 연결</DialogTitle>
+          <DialogTitle>{t('서버 연결')}</DialogTitle>
           <DialogDescription>
-            신뢰하는 SMB 공유를 등록하세요. 테스트할 때 현재 Windows 세션으로 접속합니다.
+            {t('신뢰하는 SMB 공유를 등록하세요. 테스트할 때 현재 Windows 세션으로 접속합니다.')}
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-3" onSubmit={add}>
           <label className="grid gap-1 text-sm">
-            서버 별칭
+            {t('서버 별칭')}
             <Input
               value={alias}
               onChange={(event) => setAlias(event.target.value)}
@@ -188,7 +193,7 @@ export function ServerManager({
             />
           </label>
           <label className="grid gap-1 text-sm">
-            공유 폴더
+            {t('공유 폴더')}
             <Input
               value={path}
               onChange={(event) => setPath(event.target.value)}
@@ -200,15 +205,15 @@ export function ServerManager({
             />
           </label>
           <Button type="submit" disabled={!!busy} className="justify-self-end">
-            공유 등록
+            {t('공유 등록')}
           </Button>
         </form>
         {error && (
           <p role="alert" className="text-sm">
-            {error}
+            {t(error)}
           </p>
         )}
-        <ul className="grid gap-2" aria-label="등록된 서버 공유">
+        <ul className="grid gap-2" aria-label={t('등록된 서버 공유')}>
           {profiles.map((profile) => (
             <li key={profile.id} className="grid gap-2 rounded-md border p-3">
               <strong className="break-all text-sm">{profile.alias}</strong>
@@ -220,7 +225,7 @@ export function ServerManager({
                   disabled={!!busy}
                   onClick={() => void test(profile)}
                 >
-                  {busy === profile.id ? '연결 확인 중…' : '연결 테스트'}
+                  {t(busy === profile.id ? '연결 확인 중…' : '연결 테스트')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -231,7 +236,7 @@ export function ServerManager({
                     save(profiles.filter((item) => item.id !== profile.id))
                   }}
                 >
-                  삭제
+                  {t('삭제')}
                 </Button>
               </div>
               {result?.id === profile.id && <CheckResult result={result.check} />}
@@ -252,6 +257,8 @@ export function ScriptServerFile({
   scriptKey: string
   onManage: () => void
 }) {
+  const { t } = useLanguage()
+
   const key = 'wsd-server-file-v1:' + scriptKey
   const [link, setLink] = useState(() => loadLink(key))
   const [profileId, setProfileId] = useState(link?.profile ?? '')
@@ -311,12 +318,12 @@ export function ScriptServerFile({
   return (
     <section className="mt-4 grid min-w-0 gap-2 border-t pt-3" aria-labelledby={heading}>
       <h3 className="text-sm font-semibold" id={heading}>
-        서버 파일 연결
+        {t('서버 파일 연결')}
       </h3>
       {profiles.length ? (
         <form className="grid gap-2" onSubmit={connect}>
           <label className="grid min-w-0 gap-1 text-xs">
-            서버 공유
+            {t('서버 공유')}
             <select
               className="h-8 min-w-0 rounded-md border bg-background px-2 text-sm"
               value={profiles.some((item) => item.id === profileId) ? profileId : ''}
@@ -324,7 +331,7 @@ export function ScriptServerFile({
               disabled={!!busy}
               required
             >
-              <option value="">공유 선택</option>
+              <option value="">{t('공유 선택')}</option>
               {profiles.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.alias}
@@ -333,7 +340,7 @@ export function ScriptServerFile({
             </select>
           </label>
           <label className="grid min-w-0 gap-1 text-xs">
-            공유 기준 파일 경로
+            {t('공유 기준 파일 경로')}
             <Input
               value={file}
               onChange={(event) => setFile(event.target.value)}
@@ -351,34 +358,36 @@ export function ScriptServerFile({
             disabled={!!busy}
             className="justify-self-start"
           >
-            파일 연결
+            {t('파일 연결')}
           </Button>
         </form>
       ) : (
         <Button size="sm" variant="outline" className="justify-self-start" onClick={onManage}>
-          공유 등록하기
+          {t('공유 등록하기')}
         </Button>
       )}
       {link && (
         <div className="grid min-w-0 gap-2 rounded-md border p-2 text-xs">
           <p className="break-all">
-            {linkedProfile ? linkedProfile.alias + ' · ' + link.file : '등록에서 삭제된 공유입니다'}
+            {linkedProfile
+              ? linkedProfile.alias + ' · ' + link.file
+              : t('등록에서 삭제된 공유입니다')}
           </p>
           <div className="flex flex-wrap gap-2">
             {linkedProfile && (
               <Button size="sm" variant="outline" onClick={() => void inspect()} disabled={!!busy}>
-                {busy === 'inspect' ? '파일 확인 중…' : '읽기·SHA-256 확인'}
+                {t(busy === 'inspect' ? '파일 확인 중…' : '읽기·SHA-256 확인')}
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={disconnect} disabled={!!busy}>
-              연결 해제
+              {t('연결 해제')}
             </Button>
           </div>
         </div>
       )}
       {error && (
         <p role="alert" className="text-sm">
-          {error}
+          {t(error)}
         </p>
       )}
       {result && linkedProfile && <CheckResult result={result} file />}

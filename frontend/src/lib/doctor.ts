@@ -1,4 +1,5 @@
 import demoFixture from '../../../fixtures/demo-workspace.json'
+import { savedLanguage } from './language'
 
 export interface Workspace {
   schemaVersion: 1 | 2
@@ -85,7 +86,7 @@ export async function collectionCapabilities(): Promise<{
 
 export async function collectLocal(): Promise<Workspace | null> {
   if (!isDesktop()) throw new Error('데스크톱 앱에서 수집할 수 있습니다')
-  const result = await nativeCall<unknown>('CollectLocal')
+  const result = await nativeFileCall<unknown>('CollectLocal')
   return result == null ? null : validateWorkspace(result)
 }
 
@@ -163,6 +164,13 @@ async function nativeCall<T>(method: string, ...args: unknown[]): Promise<T> {
   return Call.ByName('main.DoctorService.' + method, ...args) as Promise<T>
 }
 
+async function nativeFileCall<T>(method: string, ...args: unknown[]): Promise<T> {
+  if (!(await nativeCall<boolean>('SetLanguage', savedLanguage()))) {
+    throw new Error('Could not apply the dialog language')
+  }
+  return nativeCall<T>(method, ...args)
+}
+
 export interface ServerCheck {
   status:
     | 'ok'
@@ -230,7 +238,7 @@ export async function parseSnapshot(raw: string): Promise<Workspace> {
 
 export async function openWorkspace(): Promise<Workspace | null> {
   if (!isDesktop()) return null
-  const result = await nativeCall<unknown>('OpenWorkspace')
+  const result = await nativeFileCall<unknown>('OpenWorkspace')
   return result == null ? null : validateWorkspace(result)
 }
 
@@ -244,7 +252,7 @@ export async function compareContexts(
 
 export async function exportWorkspace(workspace: Workspace): Promise<boolean> {
   const safe = validateWorkspace(workspace)
-  if (isDesktop()) return nativeCall('ExportWorkspace', safe)
+  if (isDesktop()) return nativeFileCall('ExportWorkspace', safe)
   // A saved snapshot must fit the same byte limit when reopened. Pretty
   // printing can push a valid near-limit snapshot over the import limit.
   const serialized = JSON.stringify(safe)

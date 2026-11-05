@@ -1,6 +1,6 @@
 # Code signing policy
 
-WinScript Doctor is preparing an application to the SignPath Foundation open-source program. Windows packages in the v0.1.0 release are unsigned. The v0.1.1 release is a draft awaiting a publicly trusted Windows signing arrangement.
+The maintainer has submitted an application to the SignPath Foundation open-source program. Approval and integration are pending. Windows packages in the v0.1.0 release are unsigned. The v0.1.1 release is a draft awaiting a publicly trusted Windows signing arrangement.
 
 The repository owner, chchlee, maintains the source and release process. The proposed signing roles are recorded below for the application. SignPath account setup, MFA verification, approval and integration are pending.
 

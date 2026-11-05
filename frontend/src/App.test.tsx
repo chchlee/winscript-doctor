@@ -17,6 +17,7 @@ vi.mock('@/lib/doctor', async (original) => ({
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
+  localStorage.setItem('wsd-language', 'ko')
   bridge.load.mockResolvedValue(structuredClone(demo))
   bridge.cancel.mockResolvedValue(true)
 })

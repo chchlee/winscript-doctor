@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('wsd-language')) localStorage.setItem('wsd-language', 'ko')
+  })
+})
+
 test('Shell 파일에 공유를 연결하고 명시적으로 읽기 권한과 해시를 확인한다', async ({ page }) => {
   const workspace = JSON.parse(readFileSync('../fixtures/demo-workspace.json', 'utf8'))
   workspace.scripts.unshift({

@@ -4,7 +4,7 @@ Effective date 2026-11-05. This policy covers the v0.1.1 source, including its G
 
 WinScript Doctor processes selected script metadata, file hashes, imported snapshots and execution-context comparisons on the user's computer. On Windows, collection can include readable Task Scheduler settings. Snapshots can contain host names, account names, task names, paths and file hashes. Users choose where to export snapshots and who can access those files.
 
-Theme preferences, skipped update versions, registered SMB aliases, share paths and script-file associations are saved in the desktop webview's local storage. SMB checks use the current Windows session, including credentials managed by Windows. The application stores the alias and paths rather than a separate SMB password.
+Theme and language preferences, skipped update versions, registered SMB aliases, share paths and script-file associations are saved in the desktop webview's local storage. SMB checks use the current Windows session, including credentials managed by Windows. The application stores the alias and paths rather than a separate SMB password.
 
 The desktop application automatically checks the public GitHub Releases API shortly after startup. Users can also request a check from the toolbar. This HTTPS request identifies the application version in its User-Agent and exposes ordinary connection information, including the device's public IP address, to GitHub. The automatic check currently has no in-app off switch. Selecting a download opens the appropriate GitHub release asset in the user's browser. GitHub handles these requests under its privacy policy. [GitHub privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)
 

@@ -12,6 +12,7 @@
 | shadcn/ui 컴포넌트 | https://github.com/shadcn-ui/ui             | MIT          |
 | Radix Primitives   | https://github.com/radix-ui/primitives      | MIT          |
 | Lucide             | https://github.com/lucide-icons/lucide      | ISC          |
+| Nanum Gothic       | https://fontsource.org/fonts/nanum-gothic/about | SIL OFL 1.1 |
 | Go 표준 라이브러리 | https://go.dev/LICENSE                      | BSD 3 Clause |
 
 전체 직접·간접 의존성은 go.mod·go.sum과 frontend/package-lock.json에 기록되어 있습니다. 배포 시 각 의존성이 제공하는 라이선스 파일도 보존하세요. WebView2 Runtime은 Microsoft의 별도 배포 조건을 따르며 앱 ZIP에 번들하지 않습니다.

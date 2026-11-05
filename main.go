@@ -15,12 +15,12 @@ var assets embed.FS
 func main() {
 	dataDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatal("사용자 설정 폴더를 확인할 수 없습니다")
+		log.Fatal("Could not locate the user configuration directory")
 	}
 	service := &DoctorService{}
 	app := application.New(application.Options{
 		Name:        "WinScript Doctor",
-		Description: "Windows 자동화의 실행 환경을 비교하는 도구",
+		Description: "Read-only script inventory and execution environment comparison",
 		Services: []application.Service{
 			application.NewService(service),
 		},
@@ -41,10 +41,10 @@ func main() {
 		Height:           980,
 		MinWidth:         1024,
 		MinHeight:        720,
-		BackgroundColour: application.NewRGB(246, 248, 249),
+		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
 	})
 	if err := app.Run(); err != nil {
-		log.Fatal("WinScript Doctor를 실행하지 못했습니다")
+		log.Fatal("Could not start WinScript Doctor")
 	}
 }

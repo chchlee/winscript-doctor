@@ -1,3 +1,6 @@
+import { LanguageProvider, translate, useLanguage } from '@/components/LanguageProvider'
+import { savedLanguage } from '@/lib/language'
+import { Settings } from '@/components/Settings'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowDownToLine,
@@ -20,6 +23,7 @@ import {
   Moon,
   Search,
   Server,
+  Settings2,
   ShieldCheck,
   SlidersHorizontal,
   Sun,
@@ -67,17 +71,17 @@ type RowFilter = 'all' | 'changed' | 'unknown'
 const engineLabels = { PowerShell: 'PowerShell', Batch: 'BAT / CMD', Shell: 'Shell / Bash' }
 
 const scriptStatus = {
-  attention: { label: '확인 필요', className: 'status-warning' },
-  healthy: { label: '특이사항 없음', className: 'status-success' },
-  unknown: { label: '미확인', className: 'status-info' },
+  attention: '확인 필요',
+  healthy: '특이사항 없음',
+  unknown: '미확인',
 }
 const evidenceLabels = { candidate: '원인 후보', observed: '직접 관측', unknown: '미확인' }
 
 function shortTime(value: string) {
   const date = new Date(value)
   return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat('ko-KR', {
+    ? translate(value, savedLanguage())
+    : new Intl.DateTimeFormat(savedLanguage() === 'ko' ? 'ko-KR' : 'en-US', {
         timeZone: 'Asia/Seoul',
         month: '2-digit',
         day: '2-digit',
@@ -88,26 +92,43 @@ function shortTime(value: string) {
 }
 
 function Status({ status }: { status: Script['status'] }) {
+  const { t } = useLanguage()
+
   const style = scriptStatus[status]
   return (
-    <Badge variant="outline" className={cn('status-badge', style.className)}>
+    <Badge
+      variant={status === 'attention' ? 'warning' : status === 'healthy' ? 'success' : 'info'}
+      className="status-badge"
+    >
       <span className="status-dot" />
-      {style.label}
+      {t(style)}
     </Badge>
   )
 }
 
 function Empty({ title, description }: { title: string; description: string }) {
+  const { t } = useLanguage()
+
   return (
     <div className="empty-state">
       <Search size={26} />
-      <h3>{title}</h3>
-      <p>{description}</p>
+      <h3>{t(title)}</h3>
+      <p>{t(description)}</p>
     </div>
   )
 }
 
 export default function App() {
+  return (
+    <LanguageProvider>
+      <WorkspaceApp />
+    </LanguageProvider>
+  )
+}
+
+function WorkspaceApp() {
+  const { t } = useLanguage()
+
   const [page, setPage] = useState<Page>('overview')
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [selectedScript, setSelectedScript] = useState('')
@@ -117,6 +138,7 @@ export default function App() {
   const [notice, setNotice] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [collectionOpen, setCollectionOpen] = useState(false)
   const [{ localCollection: canCollect, serverFiles: canConnect }, setCapabilities] = useState({
     localCollection: false,
@@ -127,7 +149,13 @@ export default function App() {
   const [collecting, setCollecting] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [workspaceSource, setWorkspaceSource] = useState<'imported' | 'collected'>('imported')
-  const [dark, setDark] = useState(() => localStorage.getItem('wsd-theme') === 'dark')
+  const [dark, setDark] = useState(() => {
+    try {
+      return localStorage.getItem('wsd-theme') === 'dark'
+    } catch {
+      return false
+    }
+  })
 
   function applyWorkspace(next: Workspace, source: 'imported' | 'collected' = 'imported') {
     setWorkspace(next)
@@ -200,7 +228,11 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
-    localStorage.setItem('wsd-theme', dark ? 'dark' : 'light')
+    try {
+      localStorage.setItem('wsd-theme', dark ? 'dark' : 'light')
+    } catch {
+      /* The selected theme remains available for this session. */
+    }
   }, [dark])
 
   useEffect(() => {
@@ -271,11 +303,11 @@ export default function App() {
   return (
     <TooltipProvider delayDuration={250}>
       <div className="app-shell">
-        <aside className="sidebar" aria-label="주 메뉴">
+        <aside className="sidebar" aria-label={t('주 메뉴')}>
           <button
             className="brand"
             onClick={() => setPage('overview')}
-            aria-label="WinScript Doctor 홈"
+            aria-label={t('WinScript Doctor 홈')}
           >
             <span className="brand-mark">
               <Terminal size={23} strokeWidth={2} />
@@ -286,7 +318,7 @@ export default function App() {
             </span>
             <span className="version-mark">0.1</span>
           </button>
-          <div className="sidebar-section-label">작업공간</div>
+          <div className="sidebar-section-label">{t('작업공간')}</div>
           <nav className="nav-list">
             <button
               className={cn('nav-item', page === 'overview' && 'active')}
@@ -294,53 +326,54 @@ export default function App() {
               aria-current={page === 'overview' ? 'page' : undefined}
             >
               <LayoutDashboard size={18} />
-              점검 개요
+              {t('점검 개요')}
             </button>
             <button
               className={cn('nav-item', page === 'compare' && 'active')}
               onClick={() => setPage('compare')}
               aria-current={page === 'compare' ? 'page' : undefined}
+              aria-label={t('환경 비교')}
             >
               <ArrowLeftRight size={18} />
-              환경 비교
+              {t('환경 비교')}
               {workspace && <span className="nav-count">{workspace.comparisons.length}</span>}
             </button>
           </nav>
           <div className="sidebar-divider" />
-          <div className="sidebar-section-label">현재 스냅샷</div>
+          <div className="sidebar-section-label">{t('현재 스냅샷')}</div>
           <div className="host-card">
             <span className="host-icon">
               <Server size={18} />
             </span>
             <div>
-              <strong>{workspace?.host.name ?? '스냅샷 없음'}</strong>
-              <small>{workspace?.host.os ?? '결과를 가져오세요'}</small>
+              <strong>{workspace?.host.name ?? t('스냅샷 없음')}</strong>
+              <small>{workspace?.host.os ?? t('결과를 가져오세요')}</small>
             </div>
           </div>
           <button className="sidebar-link" onClick={resetDemo} disabled={busy}>
             <FileJson size={15} />
-            예제 불러오기
+            {t('예제 불러오기')}
             <ChevronRight size={14} />
           </button>
           <div className="sidebar-bottom">
             <ShieldCheck size={18} />
-            <strong>로컬 데이터 처리</strong>
-            <p>결과를 외부로 전송하지 않습니다.</p>
-            <span>Windows 스크립트 진단</span>
+            <strong>{t('로컬 데이터 처리')}</strong>
+            <p>{t('결과를 외부로 전송하지 않습니다.')}</p>
+            <span>{t('Windows 스크립트 진단')}</span>
           </div>
         </aside>
 
         <div className="workspace-shell">
           <header className="topbar">
             <div className="breadcrumb">
-              작업공간
+              {t('작업공간')}
               <ChevronRight size={13} />
-              <span>{title}</span>
+              <span>{t(title)}</span>
             </div>
             <div className="topbar-actions">
               <span className="local-indicator">
                 <span />
-                로컬 작업공간
+                {t('로컬 작업공간')}
               </span>
               <div className="topbar-divider" />
               <Tooltip>
@@ -350,27 +383,38 @@ export default function App() {
                     size="icon"
                     className="icon-button"
                     onClick={() => setDark(!dark)}
-                    aria-label={dark ? '밝은 테마로 전환' : '어두운 테마로 전환'}
+                    aria-label={t(dark ? '밝은 테마로 전환' : '어두운 테마로 전환')}
                   >
                     {dark ? <Sun size={17} /> : <Moon size={17} />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>테마 전환</TooltipContent>
+                <TooltipContent>{t('테마 전환')}</TooltipContent>
               </Tooltip>
               {canConnect && (
                 <Button variant="outline" size="sm" onClick={() => setServerOpen(true)}>
                   <Server size={15} />
-                  서버 연결
+                  {t('서버 연결')}
                 </Button>
               )}
               <AppUpdates
-                blocked={busy || importOpen || collectionOpen || helpOpen || serverOpen}
+                blocked={
+                  busy || importOpen || collectionOpen || helpOpen || serverOpen || settingsOpen
+                }
               />
               <Button
                 variant="ghost"
                 size="icon"
                 className="icon-button"
-                aria-label="도움말"
+                aria-label={t('설정')}
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings2 size={18} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="icon-button"
+                aria-label={t('도움말')}
                 onClick={() => setHelpOpen(true)}
               >
                 <CircleHelp size={18} />
@@ -383,8 +427,8 @@ export default function App() {
               {error && (
                 <div className="error-banner" role="alert">
                   <CircleAlert size={18} />
-                  <span>{error}</span>
-                  <button aria-label="오류 닫기" onClick={() => setError('')}>
+                  <span>{t(error)}</span>
+                  <button aria-label={t('오류 닫기')} onClick={() => setError('')}>
                     <X size={16} />
                   </button>
                 </div>
@@ -392,27 +436,29 @@ export default function App() {
               <div className="page-heading">
                 <div>
                   <div className="eyebrow">
-                    {page === 'overview' ? '스크립트 상태 점검' : '실행 환경 비교'}
+                    {t(page === 'overview' ? '스크립트 상태 점검' : '실행 환경 비교')}
                   </div>
-                  <h1>{page === 'overview' ? '운영 스크립트 점검' : '실행 환경 비교'}</h1>
+                  <h1>{t(page === 'overview' ? '운영 스크립트 점검' : '실행 환경 비교')}</h1>
                   <p>
-                    {page === 'overview'
-                      ? '스크립트와 예약 작업의 실행 조건을 함께 확인하세요.'
-                      : '수동 기준과 예약 실행에서 무엇이 달라졌는지 확인하세요.'}
+                    {t(
+                      page === 'overview'
+                        ? '스크립트와 예약 작업의 실행 조건을 함께 확인하세요.'
+                        : '수동 기준과 예약 실행에서 무엇이 달라졌는지 확인하세요.',
+                    )}
                   </p>
                 </div>
                 <div className="page-actions">
                   <Button variant="outline" onClick={() => setCollectionOpen(true)} disabled={busy}>
                     <Monitor size={16} />
-                    로컬 수집
+                    {t('로컬 수집')}
                   </Button>
                   <Button variant="outline" onClick={handleExport} disabled={!workspace || busy}>
                     <ArrowDownToLine size={16} />
-                    결과 저장
+                    {t('결과 저장')}
                   </Button>
                   <Button onClick={handleImport} disabled={busy}>
                     <FolderOpen size={16} />
-                    스냅샷 열기
+                    {t('스냅샷 열기')}
                   </Button>
                 </div>
               </div>
@@ -427,17 +473,19 @@ export default function App() {
                   <span>{workspace.host.os}</span>
                   <span className="snapshot-time">
                     <Clock3 size={14} />
-                    {shortTime(workspace.host.collectedAt)} 수집
+                    {shortTime(workspace.host.collectedAt)} {t('수집')}
                   </span>
                   <Badge
                     variant="outline"
                     className={workspace.demo ? 'demo-badge' : 'source-badge'}
                   >
-                    {workspace.demo
-                      ? '합성 예제'
-                      : workspaceSource === 'collected'
-                        ? '로컬 수집'
-                        : '가져온 스냅샷'}
+                    {t(
+                      workspace.demo
+                        ? '합성 예제'
+                        : workspaceSource === 'collected'
+                          ? '로컬 수집'
+                          : '가져온 스냅샷',
+                    )}
                   </Badge>
                 </div>
               )}
@@ -447,7 +495,7 @@ export default function App() {
               {busy && !workspace ? (
                 <div className="loading-state" role="status">
                   <LoaderCircle className="animate-spin" size={25} />
-                  <p>점검 결과를 불러오고 있습니다</p>
+                  <p>{t('점검 결과를 불러오고 있습니다')}</p>
                 </div>
               ) : workspace ? (
                 page === 'overview' ? (
@@ -489,8 +537,8 @@ export default function App() {
                 )
               ) : (
                 <Empty
-                  title="스냅샷을 열어 시작하세요"
-                  description="저장된 JSON 파일을 가져오거나 합성 예제를 불러올 수 있습니다."
+                  title={t('스냅샷을 열어 시작하세요')}
+                  description={t('저장된 JSON 파일을 가져오거나 합성 예제를 불러올 수 있습니다.')}
                 />
               )}
             </div>
@@ -498,12 +546,14 @@ export default function App() {
           <footer className="statusbar">
             <span>
               <ShieldCheck size={12} />
-              {isDesktop() ? 'Wails 데스크톱' : '브라우저 미리보기'}
+              {t(isDesktop() ? 'Wails 데스크톱' : '브라우저 미리보기')}
             </span>
             <span>
-              {workspace?.demo
-                ? '예제 데이터 · 실제 서버를 점검한 결과가 아닙니다'
-                : '저장된 스냅샷 기반 · 실시간 상태가 아닙니다'}
+              {t(
+                workspace?.demo
+                  ? '예제 데이터 · 실제 서버를 점검한 결과가 아닙니다'
+                  : '저장된 스냅샷 기반 · 실시간 상태가 아닙니다',
+              )}
             </span>
             <span>
               WinScript Doctor <span className="mono">v{appInfo.version}</span>
@@ -514,8 +564,8 @@ export default function App() {
       {notice && (
         <div className="notice" role="status">
           <CheckCheck size={18} />
-          <span>{notice}</span>
-          <button onClick={() => setNotice('')} aria-label="알림 닫기">
+          <span>{t(notice)}</span>
+          <button onClick={() => setNotice('')} aria-label={t('알림 닫기')}>
             <X size={15} />
           </button>
         </div>
@@ -529,6 +579,12 @@ export default function App() {
           setNotice('스냅샷을 가져왔습니다.')
         }}
       />
+      <Settings
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        dark={dark}
+        onThemeChange={setDark}
+      />
       {canConnect && (
         <ServerManager
           open={serverOpen}
@@ -540,25 +596,28 @@ export default function App() {
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>점검 결과를 읽는 방법</DialogTitle>
-            <DialogDescription>관측한 차이와 장애 원인 후보를 구분합니다.</DialogDescription>
+            <DialogTitle>{t('점검 결과를 읽는 방법')}</DialogTitle>
+            <DialogDescription>{t('관측한 차이와 장애 원인 후보를 구분합니다.')}</DialogDescription>
           </DialogHeader>
           <div className="help-content">
             <p>
-              <strong>직접 관측</strong>수집된 두 값 사이에 실제 차이가 있습니다.
+              <strong>{t('직접 관측')}</strong>
+              {t('수집된 두 값 사이에 실제 차이가 있습니다.')}
             </p>
             <p>
-              <strong>원인 후보</strong>관측한 차이가 실패와 관련 있는지 추가 확인이 필요합니다.
+              <strong>{t('원인 후보')}</strong>
+              {t('관측한 차이가 실패와 관련 있는지 추가 확인이 필요합니다.')}
             </p>
             <p>
-              <strong>미확인</strong>정보가 수집되지 않았거나 대상 계정에서 검증하지 않았습니다.
+              <strong>{t('미확인')}</strong>
+              {t('정보가 수집되지 않았거나 대상 계정에서 검증하지 않았습니다.')}
             </p>
             <div className="inline-info">
               <Info size={17} />
               <span>
-                데스크톱 앱에서 로컬 파일을 읽거나 저장된 결과를 열 수 있습니다. Windows에서는 예약
-                작업 설정도 읽습니다. 예약 작업 설정은 실제 실행 환경 관측값과 구분합니다. 운영
-                스크립트 실행과 자동 수정은 수행하지 않습니다.
+                {t(
+                  '데스크톱 앱에서 로컬 파일을 읽거나 저장된 결과를 열 수 있습니다. Windows에서는 예약 작업 설정도 읽습니다. 예약 작업 설정은 실제 실행 환경 관측값과 구분합니다. 운영 스크립트 실행과 자동 수정은 수행하지 않습니다.',
+                )}
               </span>
             </div>
           </div>
@@ -572,26 +631,29 @@ export default function App() {
       >
         <DialogContent showCloseButton={!collecting}>
           <DialogHeader>
-            <DialogTitle>로컬 스크립트 수집</DialogTitle>
+            <DialogTitle>{t('로컬 스크립트 수집')}</DialogTitle>
             <DialogDescription>
-              선택한 폴더에서 스크립트 파일을 찾고 SHA-256을 계산합니다.
+              {t('선택한 폴더에서 스크립트 파일을 찾고 SHA-256을 계산합니다.')}
             </DialogDescription>
           </DialogHeader>
           <div className="help-content">
             <p>
-              PS1·BAT·CMD·SH·BASH 파일을 읽습니다. Windows에서는 읽기 가능한 예약 작업의
-              PowerShell·BAT·CMD 직접 참조도 연결합니다.
+              {t(
+                'PS1·BAT·CMD·SH·BASH 파일을 읽습니다. Windows에서는 읽기 가능한 예약 작업의 PowerShell·BAT·CMD 직접 참조도 연결합니다.',
+              )}
             </p>
             <p>
-              최대 500개 파일을 수집하며 파일당 16 MiB까지 해시를 읽습니다. 링크는 제외합니다.
-              Windows에서 네트워크 공유는 서버 연결 메뉴를 사용하세요.
+              {t(
+                '최대 500개 파일을 수집하며 파일당 16 MiB까지 해시를 읽습니다. 링크는 제외합니다. Windows에서 네트워크 공유는 서버 연결 메뉴를 사용하세요.',
+              )}
             </p>
             {!canCollect && (
               <div className="inline-info">
                 <Info size={17} />
                 <span>
-                  로컬 수집은 데스크톱 앱에서 사용할 수 있습니다. 이 환경에서는 저장된 스냅샷을 열어
-                  비교할 수 있습니다.
+                  {t(
+                    '로컬 수집은 데스크톱 앱에서 사용할 수 있습니다. 이 환경에서는 저장된 스냅샷을 열어 비교할 수 있습니다.',
+                  )}
                 </span>
               </div>
             )}
@@ -599,9 +661,11 @@ export default function App() {
               <div className="inline-info" role="status">
                 <LoaderCircle className="animate-spin" size={18} />
                 <span>
-                  {cancelling
-                    ? '현재 읽기 작업이 끝나면 중단하고 부분 결과를 보존합니다.'
-                    : '폴더를 선택하면 수집합니다. 파일과 예약 작업을 읽는 중입니다.'}
+                  {t(
+                    cancelling
+                      ? '현재 읽기 작업이 끝나면 중단하고 부분 결과를 보존합니다.'
+                      : '폴더를 선택하면 수집합니다. 파일과 예약 작업을 읽는 중입니다.',
+                  )}
                 </span>
               </div>
             )}
@@ -609,15 +673,15 @@ export default function App() {
           <div className="dialog-actions">
             {collecting ? (
               <Button variant="outline" onClick={handleCancelCollection} disabled={cancelling}>
-                수집 중단
+                {t('수집 중단')}
               </Button>
             ) : (
               <>
                 <Button variant="outline" onClick={() => setCollectionOpen(false)}>
-                  닫기
+                  {t('닫기')}
                 </Button>
                 <Button onClick={handleCollect} disabled={!canCollect}>
-                  폴더 선택 후 수집
+                  {t('폴더 선택 후 수집')}
                 </Button>
               </>
             )}
@@ -629,6 +693,8 @@ export default function App() {
 }
 
 function CollectionSummary({ workspace }: { workspace: Workspace }) {
+  const { t } = useLanguage()
+
   const scope = workspace.collection!
   const status = { complete: '범위 내 수집 완료', partial: '부분 수집', cancelled: '중단한 수집' }[
     scope.status
@@ -640,30 +706,43 @@ function CollectionSummary({ workspace }: { workspace: Workspace }) {
     not_applicable: '이 환경에서는 수집하지 않음',
   }[scope.taskStatus]
   return (
-    <section className="collection-summary" aria-label="수집 범위와 제한">
+    <section className="collection-summary" aria-label={t('수집 범위와 제한')}>
       <div className="collection-summary-heading">
         <strong>
           <Monitor size={16} />
-          {status}
+          {t(status)}
         </strong>
         <span>
-          해시 {workspace.scripts.filter((script) => script.sha256).length} / 파일{' '}
-          {workspace.scripts.length}개 · 예약 작업{' '}
-          {scope.taskStatus === 'not_applicable'
-            ? taskStatus
-            : `${scope.examinedTasks}개 조회 · ${taskStatus}`}
+          {t('해시 {hashed} / 파일 {files}개 · 예약 작업 {tasks}', {
+            hashed: workspace.scripts.filter((script) => script.sha256).length,
+            files: workspace.scripts.length,
+            tasks:
+              scope.taskStatus === 'not_applicable'
+                ? t(taskStatus)
+                : t('{count}개 조회 · {status}', {
+                    count: scope.examinedTasks,
+                    status: t(taskStatus),
+                  }),
+          })}
         </span>
       </div>
       <div className="collection-root mono">{scope.root}</div>
-      <p>선택한 범위의 파일과 작업 설정입니다. 실행 성공 여부와 실제 실행 환경은 미확인입니다.</p>
+      <p>
+        {t('선택한 범위의 파일과 작업 설정입니다. 실행 성공 여부와 실제 실행 환경은 미확인입니다.')}
+      </p>
       {scope.issues.length > 0 && (
         <details>
-          <summary>수집 제한·부분 실패 {scope.issues.length}종류 확인</summary>
+          <summary>
+            {t('수집 제한·부분 실패 {count}종류 확인', { count: scope.issues.length })}
+          </summary>
           <ul>
             {scope.issues.map((issue) => (
               <li key={issue.code}>
-                <span>{collectionIssueLabels[issue.code]}</span>
-                <strong>{issue.count}건</strong>
+                <span>{t(collectionIssueLabels[issue.code])}</span>
+                <strong>
+                  {issue.count}
+                  {t('건')}
+                </strong>
               </li>
             ))}
           </ul>
@@ -686,6 +765,8 @@ function Overview({
   onCompare: (script?: Script) => void
   serverFile?: (script: Script) => React.ReactNode
 }) {
+  const { t } = useLanguage()
+
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const scripts = useMemo(
@@ -715,9 +796,9 @@ function Overview({
     <>
       <div className="summary-grid">
         <Summary
-          label="점검 대상 스크립트"
+          label={t('점검 대상 스크립트')}
           value={workspace.scripts.length}
-          unit="개"
+          unit={t('개')}
           icon={<FileCode2 size={20} />}
           detail={(Object.keys(engineLabels) as Script['engine'][])
             .map(
@@ -727,30 +808,31 @@ function Overview({
             .join(' · ')}
         />
         <Summary
-          label="확인이 필요한 스크립트"
+          label={t('확인이 필요한 스크립트')}
           value={attentionCount}
-          unit="개"
+          unit={t('개')}
           icon={<TriangleAlert size={20} />}
-          detail="원인 후보와 미확인 항목 포함"
+          detail={t('원인 후보와 미확인 항목 포함')}
           tone="warning"
         />
         <Summary
-          label="수집된 환경 비교"
+          label={t('수집된 환경 비교')}
           value={workspace.comparisons.length}
-          unit="쌍"
+          unit={t('쌍')}
           icon={<ArrowLeftRight size={20} />}
-          detail="수동 기준과 예약 실행의 비교 자료"
+          detail={t('수동 기준과 예약 실행의 비교 자료')}
         />
       </div>
 
       <div className="overview-grid">
-        <section className="panel inventory-panel" aria-label="스크립트 목록">
+        <section className="panel inventory-panel" aria-label={t('스크립트 목록')}>
           <div className="panel-heading">
             <div>
               <h2>
-                스크립트 목록 <span>{workspace.scripts.length}</span>
+                {t('스크립트 목록')}
+                <span>{workspace.scripts.length}</span>
               </h2>
-              <p>파일과 연결된 예약 작업을 확인하세요.</p>
+              <p>{t('파일과 연결된 예약 작업을 확인하세요.')}</p>
             </div>
             <FileCode2 size={19} className="muted-icon" />
           </div>
@@ -758,13 +840,14 @@ function Overview({
             <div className="search-field">
               <Search size={16} />
               <Input
-                aria-label="스크립트 검색"
-                placeholder="스크립트, 작업 이름으로 검색"
+                aria-label={t('스크립트 검색')}
+                placeholder={t('스크립트, 작업 이름으로 검색')}
+                className="pl-9 pr-9 text-xs"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
               {query && (
-                <button aria-label="검색 초기화" onClick={() => setQuery('')}>
+                <button aria-label={t('검색 초기화')} onClick={() => setQuery('')}>
                   <X size={14} />
                 </button>
               )}
@@ -775,10 +858,10 @@ function Overview({
                   <SlidersHorizontal size={16} />
                 </span>
               </TooltipTrigger>
-              <TooltipContent>아래 필터로 목록을 좁힐 수 있습니다.</TooltipContent>
+              <TooltipContent>{t('아래 필터로 목록을 좁힐 수 있습니다.')}</TooltipContent>
             </Tooltip>
           </div>
-          <div className="filter-list" aria-label="스크립트 필터">
+          <div className="filter-list" aria-label={t('스크립트 필터')}>
             {(
               [
                 { id: 'all', label: '전체' },
@@ -794,7 +877,7 @@ function Overview({
                 aria-pressed={filter === item.id}
                 onClick={() => setFilter(item.id)}
               >
-                {item.label}
+                {t(item.label)}
                 {item.id === 'all' && <span>{workspace.scripts.length}</span>}
               </button>
             ))}
@@ -803,10 +886,10 @@ function Overview({
             <table className="inventory-table">
               <thead>
                 <tr>
-                  <th>스크립트</th>
-                  <th>예약 작업</th>
-                  <th>상태</th>
-                  <th className="last-run">최근 실행</th>
+                  <th>{t('스크립트')}</th>
+                  <th>{t('예약 작업')}</th>
+                  <th>{t('상태')}</th>
+                  <th className="last-run">{t('최근 실행')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -834,7 +917,7 @@ function Overview({
                       </button>
                     </td>
                     <td className="task-cell" title={script.taskName}>
-                      {script.taskName || '연결 미확인'}
+                      {script.taskName || t('연결 미확인')}
                       {(script.taskLinks?.length ?? 0) > 1 && (
                         <span className="subtle-text"> +{script.taskLinks!.length - 1}</span>
                       )}
@@ -849,27 +932,29 @@ function Overview({
             </table>
             {scripts.length === 0 && (
               <Empty
-                title="검색 결과가 없습니다"
-                description="다른 검색어나 필터로 다시 확인하세요."
+                title={t('검색 결과가 없습니다')}
+                description={t('다른 검색어나 필터로 다시 확인하세요.')}
               />
             )}
           </div>
           <div className="table-footer">
             <span>
-              {scripts.length}개 표시{' '}
-              <span className="subtle-text">/ 전체 {workspace.scripts.length}개</span>
+              {t('{count}개 표시 / 전체 {total}개', {
+                count: scripts.length,
+                total: workspace.scripts.length,
+              })}
             </span>
             <span>
               <Info size={13} />
-              행을 선택하면 진단 근거를 볼 수 있습니다
+              {t('행을 선택하면 진단 근거를 볼 수 있습니다')}
             </span>
           </div>
         </section>
 
-        <aside className="panel detail-panel" aria-label="선택한 스크립트 진단">
+        <aside className="panel detail-panel" aria-label={t('선택한 스크립트 진단')}>
           <div className="detail-heading">
-            <span className="small-label">진단 근거</span>
-            <h2>진단 상세</h2>
+            <span className="small-label">{t('진단 근거')}</span>
+            <h2>{t('진단 상세')}</h2>
           </div>
           {selected ? (
             <>
@@ -880,70 +965,74 @@ function Overview({
                   <span className="mono">{selected.taskName}</span>
                 </div>
               </div>
-              <p className="script-description">{selected.description}</p>
-              <div className="path-label">파일 위치</div>
+              <p className="script-description">{t(selected.description)}</p>
+              <div className="path-label">{t('파일 위치')}</div>
               <div className="path-value mono">{selected.path}</div>
               {(workspace.collection || selected.sha256) && (
                 <>
                   <div className="path-label">SHA-256</div>
                   <div className="path-value mono">
-                    {selected.sha256 || '미수집 · 수집 제한과 실패를 확인하세요'}
+                    {selected.sha256 || t('미수집 · 수집 제한과 실패를 확인하세요')}
                   </div>
                 </>
               )}
               {serverFile?.(selected)}
               {!!selected.taskLinks?.length && (
                 <details className="task-links">
-                  <summary>예약 작업 설정 {selected.taskLinks.length}개</summary>
-                  <p>저장된 설정입니다. 실제 실행 환경은 별도 수집이 필요합니다.</p>
+                  <summary>
+                    {t('예약 작업 설정 {count}개', { count: selected.taskLinks.length })}
+                  </summary>
+                  <p>{t('저장된 설정입니다. 실제 실행 환경은 별도 수집이 필요합니다.')}</p>
                   {selected.taskLinks.map((link) => (
                     <dl key={link.name + link.action}>
-                      <dt>작업 / 동작</dt>
+                      <dt>{t('작업 / 동작')}</dt>
                       <dd>
                         {link.name} / {link.action}
                       </dd>
-                      <dt>실행 파일</dt>
+                      <dt>{t('실행 파일')}</dt>
                       <dd className="mono">{link.executable}</dd>
-                      <dt>작업 폴더</dt>
-                      <dd className="mono">{link.workingDirectory || '명시되지 않음'}</dd>
-                      <dt>설정 계정</dt>
-                      <dd>{link.account || '미확인'}</dd>
-                      <dt>로그온 방식</dt>
-                      <dd>{link.logonType || '미확인'}</dd>
-                      <dt>최근 실행</dt>
-                      <dd>{link.lastRunTime ? shortTime(link.lastRunTime) : '미확인'}</dd>
-                      <dt>최근 결과 코드</dt>
-                      <dd className="mono">{link.lastResult || '미확인'}</dd>
+                      <dt>{t('작업 폴더')}</dt>
+                      <dd className="mono">{link.workingDirectory || t('명시되지 않음')}</dd>
+                      <dt>{t('설정 계정')}</dt>
+                      <dd>{link.account || t('미확인')}</dd>
+                      <dt>{t('로그온 방식')}</dt>
+                      <dd>{link.logonType || t('미확인')}</dd>
+                      <dt>{t('최근 실행')}</dt>
+                      <dd>{link.lastRunTime ? shortTime(link.lastRunTime) : t('미확인')}</dd>
+                      <dt>{t('최근 결과 코드')}</dt>
+                      <dd className="mono">{link.lastResult || t('미확인')}</dd>
                     </dl>
                   ))}
                 </details>
               )}
               <div className="detail-separator" />
               <div className="findings-title">
-                확인할 진단 <span>{findings.length}</span>
+                {t('확인할 진단')}
+                <span>{findings.length}</span>
               </div>
               {findings.length ? (
                 findings.map((finding) => <FindingCard key={finding.id} finding={finding} />)
               ) : (
                 <div className="no-finding">
                   <ShieldCheck size={22} />
-                  <strong>등록된 진단 항목이 없습니다</strong>
-                  <p>현재 스냅샷에 기록된 결과입니다.</p>
+                  <strong>{t('등록된 진단 항목이 없습니다')}</strong>
+                  <p>{t('현재 스냅샷에 기록된 결과입니다.')}</p>
                 </div>
               )}
               {workspace.comparisons.some(
                 (item) => item.taskName === selected.taskName && item.scriptName === selected.name,
               ) && (
                 <Button className="compare-action" onClick={() => onCompare(selected)}>
-                  <ArrowLeftRight size={15} />이 작업의 환경 비교
+                  <ArrowLeftRight size={15} />
+                  {t('이 작업의 환경 비교')}
                   <ArrowRight size={15} />
                 </Button>
               )}
             </>
           ) : (
             <Empty
-              title="스크립트를 선택하세요"
-              description="목록에서 항목을 선택하면 근거가 표시됩니다."
+              title={t('스크립트를 선택하세요')}
+              description={t('목록에서 항목을 선택하면 근거가 표시됩니다.')}
             />
           )}
         </aside>
@@ -951,8 +1040,9 @@ function Overview({
       <div className="scope-note">
         <ShieldCheck size={16} />
         <span>
-          관측한 차이는 원인을 좁히는 단서입니다. 실제 실행 계정에서 확인하지 못한 항목은 미확인으로
-          남깁니다.
+          {t(
+            '관측한 차이는 원인을 좁히는 단서입니다. 실제 실행 계정에서 확인하지 못한 항목은 미확인으로 남깁니다.',
+          )}
         </span>
       </div>
     </>
@@ -974,22 +1064,26 @@ function Summary({
   detail: string
   tone?: string
 }) {
+  const { t } = useLanguage()
+
   return (
     <div className={cn('summary-card', tone === 'warning' && 'summary-warning')}>
       <div className="summary-top">
-        <span>{label}</span>
+        <span>{t(label)}</span>
         <span className="summary-icon">{icon}</span>
       </div>
       <div className="summary-number">
         {value}
         <small>{unit}</small>
       </div>
-      <p>{detail}</p>
+      <p>{t(detail)}</p>
     </div>
   )
 }
 
 function FindingCard({ finding }: { finding: Finding }) {
+  const { t } = useLanguage()
+
   const [expanded, setExpanded] = useState(false)
   return (
     <div className={cn('finding-card', `finding-${finding.severity}`)}>
@@ -1005,7 +1099,7 @@ function FindingCard({ finding }: { finding: Finding }) {
         ) : (
           <Info size={16} />
         )}
-        <span>{finding.title}</span>
+        <span>{t(finding.title)}</span>
         <ChevronDown size={14} className={expanded ? 'rotate-180' : ''} />
       </button>
       <div className="finding-meta">
@@ -1014,20 +1108,20 @@ function FindingCard({ finding }: { finding: Finding }) {
           variant="outline"
           className={cn('evidence-badge', finding.evidenceState === 'unknown' && 'status-info')}
         >
-          {evidenceLabels[finding.evidenceState]}
+          {t(evidenceLabels[finding.evidenceState])}
         </Badge>
       </div>
-      <p>{finding.explanation}</p>
+      <p>{t(finding.explanation)}</p>
       {expanded && (
         <div className="finding-evidence">
-          <strong>확인 근거</strong>
+          <strong>{t('확인 근거')}</strong>
           <ul>
             {finding.evidence.map((item, index) => (
-              <li key={index}>{item}</li>
+              <li key={index}>{t(item)}</li>
             ))}
           </ul>
-          <strong>다음 확인</strong>
-          <p>{finding.nextStep}</p>
+          <strong>{t('다음 확인')}</strong>
+          <p>{t(finding.nextStep)}</p>
         </div>
       )}
     </div>
@@ -1043,6 +1137,8 @@ function EnvironmentComparison({
   pairId: string
   onSelectPair: (id: string) => void
 }) {
+  const { t } = useLanguage()
+
   const pair = workspace.comparisons.find((item) => item.id === pairId)
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [swapped, setSwapped] = useState(false)
@@ -1081,8 +1177,8 @@ function EnvironmentComparison({
   if (!pair)
     return (
       <Empty
-        title="비교할 환경 정보가 없습니다"
-        description="수동 기준과 예약 실행 정보가 포함된 스냅샷을 가져오세요."
+        title={t('비교할 환경 정보가 없습니다')}
+        description={t('수동 기준과 예약 실행 정보가 포함된 스냅샷을 가져오세요.')}
       />
     )
   const left = swapped ? pair.scheduled : pair.manual
@@ -1094,7 +1190,7 @@ function EnvironmentComparison({
     <>
       <div className="comparison-toolbar">
         <div className="comparison-selector">
-          <label htmlFor="task-select">비교할 작업</label>
+          <label htmlFor="task-select">{t('비교할 작업')}</label>
           <div className="select-wrapper">
             <Terminal size={16} />
             <select
@@ -1114,33 +1210,33 @@ function EnvironmentComparison({
         </div>
         <Button variant="outline" size="sm" onClick={() => setSwapped(!swapped)}>
           <ArrowLeftRight size={14} />
-          좌우 바꾸기
+          {t('좌우 바꾸기')}
         </Button>
       </div>
       <div className="context-grid">
         <ContextCard context={left} variant={swapped ? 'scheduled' : 'manual'} />
         <ContextCard context={right} variant={swapped ? 'manual' : 'scheduled'} />
       </div>
-      <section className="panel comparison-panel" aria-label="실행 환경 비교 결과">
+      <section className="panel comparison-panel" aria-label={t('실행 환경 비교 결과')}>
         <div className="comparison-heading">
           <div>
-            <h2>실행 환경 비교</h2>
-            <p>값이 다른 항목과 아직 확인하지 못한 항목을 구분합니다.</p>
+            <h2>{t('실행 환경 비교')}</h2>
+            <p>{t('값이 다른 항목과 아직 확인하지 못한 항목을 구분합니다.')}</p>
           </div>
           {result && (
             <div className="comparison-summary">
               <span className="status-warning">
                 <ArrowLeftRight size={14} />
-                차이 {result.changeCount}
+                {t('차이')} {result.changeCount}
               </span>
               <span className="status-info">
                 <CircleHelp size={14} />
-                미확인 {result.unknownCount}
+                {t('미확인')} {result.unknownCount}
               </span>
             </div>
           )}
         </div>
-        <div className="comparison-filters" aria-label="환경 비교 필터">
+        <div className="comparison-filters" aria-label={t('환경 비교 필터')}>
           {(
             [
               { id: 'all', label: '전체 항목', count: result?.rows.length ?? 0 },
@@ -1154,7 +1250,7 @@ function EnvironmentComparison({
               aria-pressed={filter === item.id}
               onClick={() => setFilter(item.id)}
             >
-              {item.label}
+              {t(item.label)}
               <span>{item.count}</span>
             </button>
           ))}
@@ -1162,23 +1258,23 @@ function EnvironmentComparison({
         {loading ? (
           <div className="loading-state" role="status">
             <LoaderCircle className="animate-spin" size={23} />
-            <p>실행 환경을 비교하고 있습니다</p>
+            <p>{t('실행 환경을 비교하고 있습니다')}</p>
           </div>
         ) : error ? (
           <div className="empty-state" role="alert">
             <CircleAlert size={24} />
-            <h3>환경을 비교하지 못했습니다</h3>
-            <p>스냅샷을 다시 가져오거나 다른 작업을 선택하세요.</p>
+            <h3>{t('환경을 비교하지 못했습니다')}</h3>
+            <p>{t('스냅샷을 다시 가져오거나 다른 작업을 선택하세요.')}</p>
           </div>
         ) : (
           <div className="table-scroll">
             <table className="comparison-table">
               <thead>
                 <tr>
-                  <th>비교 항목</th>
-                  <th>{left.label}</th>
-                  <th>{right.label}</th>
-                  <th>판정</th>
+                  <th>{t('비교 항목')}</th>
+                  <th>{t(left.label)}</th>
+                  <th>{t(right.label)}</th>
+                  <th>{t('판정')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1196,23 +1292,22 @@ function EnvironmentComparison({
                         onClick={() => setActiveKey(row.key)}
                         aria-pressed={activeKey === row.key}
                       >
-                        {row.label}
+                        {t(row.label)}
                         <ChevronRight size={13} />
                       </button>
                     </th>
-                    <td className="mono">{row.left || '미확인'}</td>
-                    <td className="mono">{row.right || '미확인'}</td>
+                    <td className="mono">{t(row.left || '미확인')}</td>
+                    <td className="mono">{t(row.right || '미확인')}</td>
                     <td>
                       <Badge
-                        variant="outline"
-                        className={cn(
-                          'comparison-badge',
+                        variant={
                           row.status === 'changed'
-                            ? 'status-warning'
+                            ? 'warning'
                             : row.status === 'same'
-                              ? 'status-success'
-                              : 'status-info',
-                        )}
+                              ? 'success'
+                              : 'info'
+                        }
+                        className="comparison-badge"
                       >
                         {row.status === 'same' ? (
                           <Check size={12} />
@@ -1221,11 +1316,13 @@ function EnvironmentComparison({
                         ) : (
                           <CircleHelp size={12} />
                         )}
-                        {row.status === 'changed'
-                          ? '차이 있음'
-                          : row.status === 'same'
-                            ? '동일'
-                            : '미확인'}
+                        {t(
+                          row.status === 'changed'
+                            ? '차이 있음'
+                            : row.status === 'same'
+                              ? '동일'
+                              : '미확인',
+                        )}
                       </Badge>
                     </td>
                   </tr>
@@ -1234,8 +1331,8 @@ function EnvironmentComparison({
             </table>
             {rows.length === 0 && (
               <Empty
-                title="해당하는 비교 항목이 없습니다"
-                description="전체 항목에서 다른 값을 확인할 수 있습니다."
+                title={t('해당하는 비교 항목이 없습니다')}
+                description={t('전체 항목에서 다른 값을 확인할 수 있습니다.')}
               />
             )}
           </div>
@@ -1248,14 +1345,14 @@ function EnvironmentComparison({
           </span>
           <div>
             <div className="insight-title">
-              <h3>{activeRow.label}</h3>
+              <h3>{t(activeRow.label)}</h3>
               <Badge variant="outline" className="evidence-badge">
-                {activeRow.status === 'unknown' ? '미확인' : '직접 관측'}
+                {t(activeRow.status === 'unknown' ? '미확인' : '직접 관측')}
               </Badge>
             </div>
-            <p>{activeRow.note}</p>
+            <p>{t(activeRow.note)}</p>
             <button className="text-action" onClick={() => setDetailsOpen(true)}>
-              수집 근거 자세히
+              {t('수집 근거 자세히')}
               <ArrowRight size={13} />
             </button>
           </div>
@@ -1264,26 +1361,31 @@ function EnvironmentComparison({
       <div className="scope-note">
         <ShieldCheck size={16} />
         <span>
-          환경 차이만으로 장애 원인을 확정하지 않습니다. 미확인 항목은 차이 건수에 포함하지
-          않습니다.
+          {t(
+            '환경 차이만으로 장애 원인을 확정하지 않습니다. 미확인 항목은 차이 건수에 포함하지 않습니다.',
+          )}
         </span>
       </div>
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{activeRow?.label} 수집 근거</DialogTitle>
-            <DialogDescription>두 환경의 수집 방식과 시각을 함께 확인하세요.</DialogDescription>
+            <DialogTitle>
+              {t('{field} 수집 근거', { field: t(activeRow?.label ?? '') })}
+            </DialogTitle>
+            <DialogDescription>
+              {t('두 환경의 수집 방식과 시각을 함께 확인하세요.')}
+            </DialogDescription>
           </DialogHeader>
           <div className="evidence-context">
-            <strong>{left.label}</strong>
-            <span>{left.captureMethod}</span>
+            <strong>{t(left.label)}</strong>
+            <span>{t(left.captureMethod)}</span>
             <span>{shortTime(left.capturedAt)}</span>
-            <strong>{right.label}</strong>
-            <span>{right.captureMethod}</span>
+            <strong>{t(right.label)}</strong>
+            <span>{t(right.captureMethod)}</span>
             <span>{shortTime(right.capturedAt)}</span>
             <div className="inline-info">
               <Info size={17} />
-              <span>{activeRow?.note}</span>
+              <span>{t(activeRow?.note ?? '')}</span>
             </div>
           </div>
         </DialogContent>
@@ -1299,20 +1401,22 @@ function ContextCard({
   context: ContextPair['manual']
   variant: 'manual' | 'scheduled'
 }) {
+  const { t } = useLanguage()
+
   return (
     <section className={cn('context-card', `context-${variant}`)}>
       <div className="context-card-top">
         <span className="context-symbol">
           {variant === 'manual' ? <Terminal size={18} /> : <Clock3 size={18} />}
         </span>
-        <h2>{context.label}</h2>
+        <h2>{t(context.label)}</h2>
         <Badge variant="outline" className="evidence-badge">
-          수집됨
+          {t('수집됨')}
         </Badge>
       </div>
-      <div className="context-account mono">{context.account || '실행 계정 미확인'}</div>
+      <div className="context-account mono">{context.account || t('실행 계정 미확인')}</div>
       <div className="context-card-bottom">
-        <span>{context.captureMethod}</span>
+        <span>{t(context.captureMethod)}</span>
         <span>{shortTime(context.capturedAt)}</span>
       </div>
     </section>
@@ -1328,6 +1432,8 @@ function ImportDialog({
   onOpenChange: (open: boolean) => void
   onImport: (workspace: Workspace) => void
 }) {
+  const { t } = useLanguage()
+
   const input = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<Workspace | null>(null)
   const [error, setError] = useState('')
@@ -1369,9 +1475,9 @@ function ImportDialog({
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>스냅샷 열기</DialogTitle>
+          <DialogTitle>{t('스냅샷 열기')}</DialogTitle>
           <DialogDescription>
-            WinScript Doctor의 JSON 스냅샷을 가져옵니다. 파일은 외부로 전송되지 않습니다.
+            {t('WinScript Doctor의 JSON 스냅샷을 가져옵니다. 파일은 외부로 전송되지 않습니다.')}
           </DialogDescription>
         </DialogHeader>
         <input
@@ -1379,7 +1485,7 @@ function ImportDialog({
           type="file"
           accept=".json,application/json"
           className="sr-only"
-          aria-label="스냅샷 JSON 파일"
+          aria-label={t('스냅샷 JSON 파일')}
           onChange={(event) => {
             void choose(event.target.files?.[0])
             event.target.value = ''
@@ -1389,13 +1495,13 @@ function ImportDialog({
           <span>
             {busy ? <LoaderCircle className="animate-spin" size={26} /> : <FileJson size={28} />}
           </span>
-          <strong>{busy ? '파일을 확인하고 있습니다' : 'JSON 파일 선택'}</strong>
-          <small>schemaVersion 1 · 최대 2 MiB</small>
+          <strong>{t(busy ? '파일을 확인하고 있습니다' : 'JSON 파일 선택')}</strong>
+          <small>{t('schemaVersion 1 · 최대 2 MiB')}</small>
         </button>
         {error && (
           <div className="import-error" role="alert">
             <CircleAlert size={16} />
-            {error}
+            {t(error)}
           </div>
         )}
         {preview && (
@@ -1404,7 +1510,10 @@ function ImportDialog({
             <div>
               <strong>{preview.host.name}</strong>
               <p>
-                스크립트 {preview.scripts.length}개 · 환경 비교 {preview.comparisons.length}쌍
+                {t('스크립트 {scripts}개 · 환경 비교 {pairs}쌍', {
+                  scripts: preview.scripts.length,
+                  pairs: preview.comparisons.length,
+                })}
               </p>
             </div>
             <Check size={17} />
@@ -1412,10 +1521,10 @@ function ImportDialog({
         )}
         <div className="dialog-actions">
           <Button variant="outline" onClick={() => changeOpen(false)}>
-            취소
+            {t('취소')}
           </Button>
           <Button disabled={!preview || busy} onClick={() => preview && onImport(preview)}>
-            가져오기
+            {t('가져오기')}
             <ArrowRight size={15} />
           </Button>
         </div>

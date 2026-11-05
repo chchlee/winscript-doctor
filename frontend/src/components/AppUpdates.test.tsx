@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { checkForUpdate, openUpdateDownload } from '@/lib/doctor'
 import { AppUpdates } from './AppUpdates'
+import { LanguageProvider } from './LanguageProvider'
 
 vi.mock('@/lib/doctor', () => ({
   isDesktop: () => true,
@@ -17,6 +18,7 @@ const release = {
 
 beforeEach(() => {
   localStorage.clear()
+  localStorage.setItem('wsd-language', 'ko')
   vi.mocked(checkForUpdate).mockReset().mockResolvedValue(release)
   vi.mocked(openUpdateDownload).mockReset().mockResolvedValue(undefined)
   vi.useFakeTimers()
@@ -31,14 +33,22 @@ async function runStartupCheck() {
 }
 
 it('suppresses only the skipped version at startup and still offers it on manual check', async () => {
-  const initial = render(<AppUpdates blocked={false} />)
+  const initial = render(
+    <LanguageProvider>
+      <AppUpdates blocked={false} />
+    </LanguageProvider>,
+  )
   await runStartupCheck()
   expect(screen.getByRole('dialog')).toHaveTextContent('0.1.2')
   fireEvent.click(screen.getByLabelText('이 버전 다시 보지 않기'))
   fireEvent.click(screen.getByRole('button', { name: '나중에' }))
   initial.unmount()
 
-  const next = render(<AppUpdates blocked={false} />)
+  const next = render(
+    <LanguageProvider>
+      <AppUpdates blocked={false} />
+    </LanguageProvider>,
+  )
   await runStartupCheck()
   expect(screen.queryByRole('dialog')).toBeNull()
   await act(async () => fireEvent.click(screen.getByRole('button', { name: '업데이트 확인' })))
@@ -47,7 +57,11 @@ it('suppresses only the skipped version at startup and still offers it on manual
   next.unmount()
 
   vi.mocked(checkForUpdate).mockResolvedValue({ ...release, version: '0.1.3' })
-  render(<AppUpdates blocked={false} />)
+  render(
+    <LanguageProvider>
+      <AppUpdates blocked={false} />
+    </LanguageProvider>,
+  )
   await runStartupCheck()
   expect(screen.getByRole('dialog')).toHaveTextContent('0.1.3')
 })

@@ -10,6 +10,8 @@ PowerShell·BAT·Shell 스크립트와 해시를 정리하고 Windows 예약 작
 
 [다음 개발 순서](docs/roadmap.md) · [기여 안내](CONTRIBUTING.md) · [설치 안내](docs/installation.md)
 
+[Code signing policy](docs/code-signing.md) · [Privacy policy](docs/privacy.md). SignPath 신청 준비 중이며 Windows 공개 서명은 승인과 연동 후 적용합니다.
+
 ![점검 개요](docs/screenshots/overview.png)
 
 ## 구현된 기능

@@ -4,6 +4,8 @@ A desktop prototype for investigating differences between manual and scheduled W
 
 [한국어 README](README.md) · [Installation](docs/installation.md) · [Roadmap](docs/roadmap.md) · [Contributing](CONTRIBUTING.md)
 
+[Code signing policy](docs/code-signing.md) · [Privacy policy](docs/privacy.md). The project is preparing a SignPath application. Windows public signing awaits approval and integration.
+
 ## Current scope
 
 The app provides an overview and an execution-context comparison screen using synthetic examples or saved JSON snapshots. Search and filters, evidence details, light/dark themes, JSON import/export, strict validation and native file dialogs are implemented. The interface is currently in Korean.

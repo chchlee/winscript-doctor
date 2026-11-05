@@ -18,7 +18,9 @@ import { fileURLToPath } from 'node:url'
 import { packageLicenses } from './package-licenses.mjs'
 
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url))
-export const version = '0.1.0'
+export const { version } = JSON.parse(
+  readFileSync(path.join(projectRoot, 'frontend/src/version.json'), 'utf8'),
+)
 export const appID = 'dev.winscriptdoctor.desktop'
 
 export function target(platform = process.platform, arch = process.arch) {
@@ -186,7 +188,17 @@ Description: Windows script snapshot diagnostics
   )
 }
 
-function makeWindowsInstaller(plan, stage, payload, destination) {
+function signWindows(plan, file) {
+  run('pwsh.exe', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-File',
+    path.join(plan.root, 'scripts/sign-windows.ps1'),
+    ...(file ? ['-Target', file] : []),
+  ])
+}
+
+function makeWindowsInstaller(plan, stage, payload, destination, signed) {
   const build = path.join(stage, 'installer')
   const installerPayload = path.join(build, 'payload')
   for (const file of [
@@ -201,14 +213,26 @@ function makeWindowsInstaller(plan, stage, payload, destination) {
   copy(path.join(plan.root, 'LICENSES/nsis.txt'), path.join(installerPayload, 'LICENSES/nsis.txt'))
   copy(path.join(plan.root, 'build/windows/installer.nsi'), path.join(build, 'installer.nsi'))
   copy(path.join(plan.root, 'build/windows/icon.ico'), path.join(build, 'icon.ico'))
+  if (signed)
+    copy(path.join(plan.root, 'scripts/sign-windows.ps1'), path.join(build, 'sign-windows.ps1'))
   const compiler =
     process.env.WSD_MAKENSIS ?? path.join(plan.root, '.local/nsis-tools/nsis-3.13/makensis.exe')
   run(
     compiler,
-    ['/INPUTCHARSET', 'UTF8', '/V2', '/WX', `/DAPP_VERSION=${version}`, 'installer.nsi'],
+    [
+      '/INPUTCHARSET',
+      'UTF8',
+      '/V2',
+      '/WX',
+      `/DAPP_VERSION=${version}`,
+      ...(signed ? ['/DWSD_SIGN_UNINSTALLER'] : []),
+      'installer.nsi',
+    ],
     { cwd: build },
   )
-  copy(path.join(build, 'WinScriptDoctorInstaller.exe'), destination)
+  const setup = path.join(build, 'WinScriptDoctorInstaller.exe')
+  if (signed) signWindows(plan, setup)
+  copy(setup, destination)
 }
 
 // Only remove temporary package directories allocated by this invocation.
@@ -234,17 +258,20 @@ function packageDesktop(plan) {
   if (plan.dev) throw new Error('개발 빌드는 배포 패키지로 만들 수 없습니다.')
   if (!existsSync(plan.binary)) throw new Error('먼저 node scripts/desktop.mjs build를 실행하세요.')
   const bin = path.join(plan.root, 'bin')
-  const output = path.join(bin, 'packages')
+  const signed = plan.os === 'windows' && Boolean(process.env.WSD_SIGNING_THUMBPRINT)
+  if (signed) signWindows(plan)
+  const output = path.join(bin, signed ? 'signed-packages' : 'packages')
   mkdirSync(output, { recursive: true })
   const stage = mkdtempSync(path.join(bin, '.wsd-package-'))
   const name = `WinScriptDoctor-${version}-${plan.id}`
   const payload = path.join(stage, name)
   try {
     stagePackage(plan.root, plan, payload)
+    if (signed) signWindows(plan, path.join(payload, 'WinScriptDoctor.exe'))
     const licenses = packageLicenses(plan)
     writeFileSync(path.join(payload, 'THIRD-PARTY-LICENSES.txt'), licenses)
     const extension = plan.os === 'linux' ? '.tar.gz' : '.zip'
-    const archive = path.join(output, `${name}${extension}`)
+    const archive = path.join(stage, `${name}${extension}`)
     if (plan.os === 'darwin') {
       // Ad-hoc signing enables locally built Apple Silicon apps. Developer ID
       // signing/notarization for public distribution remains a separate step.
@@ -271,12 +298,14 @@ function packageDesktop(plan) {
         stage,
         name,
       ])
-    checksum(archive)
     if (plan.os === 'windows' && plan.arch === 'amd64') {
       const installer = path.join(output, `${name}-setup.exe`)
-      makeWindowsInstaller(plan, stage, payload, installer)
+      makeWindowsInstaller(plan, stage, payload, installer, signed)
       checksum(installer)
     }
+    const packagedArchive = path.join(output, path.basename(archive))
+    copy(archive, packagedArchive)
+    checksum(packagedArchive)
     if (plan.os === 'linux') {
       const debStage = path.join(stage, 'debian')
       stageDeb(plan.root, plan, debStage)

@@ -155,6 +155,20 @@ async function nativeCall<T>(method: string, ...args: unknown[]): Promise<T> {
   return Call.ByName('main.DoctorService.' + method, ...args) as Promise<T>
 }
 
+export interface UpdateInfo {
+  currentVersion: string
+  version: string
+  file: string
+}
+
+export function checkForUpdate(): Promise<UpdateInfo> {
+  return nativeCall<UpdateInfo>('CheckForUpdate')
+}
+
+export function openUpdateDownload(version: string): Promise<void> {
+  return nativeCall<void>('OpenUpdateDownload', version)
+}
+
 export async function loadWorkspace(): Promise<Workspace> {
   if (isDesktop()) return validateWorkspace(await nativeCall('GetWorkspace'))
   return validateWorkspace(structuredClone(demoFixture))

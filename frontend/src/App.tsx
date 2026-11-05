@@ -39,6 +39,8 @@ import {
 } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { AppUpdates } from '@/components/AppUpdates'
+import appInfo from './version.json'
 import {
   compareContexts,
   collectLocal,
@@ -347,6 +349,7 @@ export default function App() {
                 </TooltipTrigger>
                 <TooltipContent>테마 전환</TooltipContent>
               </Tooltip>
+              <AppUpdates blocked={busy || importOpen || collectionOpen || helpOpen} />
               <Button
                 variant="ghost"
                 size="icon"
@@ -465,7 +468,7 @@ export default function App() {
                 : '저장된 스냅샷 기반 · 실시간 상태가 아닙니다'}
             </span>
             <span>
-              WinScript Doctor <span className="mono">v0.1.0</span>
+              WinScript Doctor <span className="mono">v{appInfo.version}</span>
             </span>
           </footer>
         </div>

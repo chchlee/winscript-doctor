@@ -22,7 +22,11 @@ Linux는 GTK4와 WebKitGTK 6.0이 필요합니다. Wails 3.1에서 GTK3 경로�
 
 ## Windows 설치
 
-Setup.exe를 실행하면 관리자 권한 없이 `%LOCALAPPDATA%\Programs\WinScript Doctor`에 설치되고 시작 메뉴에 등록됩니다. **설정 → 앱 → 설치된 앱**에서 제거할 수 있습니다. 업데이트하려면 기존 앱을 제거한 뒤 새 Setup.exe를 실행하세요. 제거해도 저장한 스냅샷과 앱 사용자 데이터는 보존합니다. Windows 설치 프로그램에는 코드 서명이 없습니다.
+Setup.exe를 실행하면 관리자 권한 없이 `%LOCALAPPDATA%\Programs\WinScript Doctor`에 설치되고 시작 메뉴에 등록됩니다. **설정 → 앱 → 설치된 앱**에서 제거할 수 있습니다. 제거해도 저장한 스냅샷과 앱 사용자 데이터는 보존합니다. 공개 v0.1.0 Windows 설치 프로그램에는 코드 서명이 없습니다.
+
+v0.1.1부터는 설치 완료 화면에서 **WinScript Doctor 실행**을 선택할 수 있습니다. 새 Setup.exe는 이전 버전이 같은 위치에 등록되어 있으면 프로그램 파일을 업데이트합니다. 업데이트 전에 열린 결과를 저장하고 앱을 닫으세요.
+
+v0.1.1 데스크톱 앱은 시작 시 GitHub 릴리스의 버전을 조회합니다. 새 버전이 있으면 OS와 CPU에 맞는 파일을 브라우저에서 받을 수 있습니다. **이 버전 다시 보지 않기**를 선택하면 해당 버전의 시작 알림을 숨깁니다. 상단의 **업데이트 확인** 버튼으로 수동 확인할 수 있습니다.
 
 설치가 필요 없으면 ZIP을 풀고 WinScriptDoctor.exe를 실행합니다. 두 방식 모두 [Microsoft WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)이 필요합니다.
 
@@ -86,6 +90,8 @@ sh scripts/test.sh
 ```
 
 Windows에서는 기존 scripts/build.ps1, scripts/dev.ps1, scripts/test.ps1을 사용할 수 있습니다. Setup.exe와 포터블 ZIP을 모두 만들려면 PowerShell에서 `.\scripts\package.ps1`을 실행하세요. 빌드 도구 NSIS는 프로젝트의 .local에 내려받으며 시스템에 설치하지 않습니다.
+
+서명 패키지를 만들려면 PowerShell 7, Windows SDK SignTool과 Windows 개인 인증서 저장소에 연결된 공개 신뢰 코드 서명 인증서가 필요합니다. `.\scripts\package.ps1 -SigningThumbprint <인증서 지문>`으로 앱, 제거 프로그램, Setup.exe에 SHA-256 서명과 타임스탬프를 적용합니다. 서명을 확인한 파일과 체크섬은 `bin/signed-packages`에 생성됩니다. [SignTool 안내](https://learn.microsoft.com/en-us/windows/win32/seccrypto/signtool)
 
 ## 네이티브 빌드 자동화
 

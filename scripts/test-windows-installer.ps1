@@ -1,6 +1,15 @@
-param([Parameter(Mandatory)][string]$Installer, [string]$PreviousInstaller)
+param([Parameter(Mandatory)][string]$Installer, [string]$PreviousInstaller, [switch]$RequireSigned, [string]$ExpectedApplication)
 $ErrorActionPreference = 'Stop'
 $exe = (Resolve-Path -LiteralPath $Installer).Path
+$setupSignature = Get-AuthenticodeSignature -LiteralPath $exe
+if (($RequireSigned -or $setupSignature.Status -ne 'NotSigned') -and
+    ($setupSignature.Status -ne 'Valid' -or !$setupSignature.TimeStamperCertificate)) {
+    throw '설치 프로그램의 신뢰된 서명과 타임스탬프를 확인하지 못했습니다.'
+}
+if ($RequireSigned -and $PreviousInstaller) { throw '서명 필수 검증에서는 이전 설치 프로그램을 실행하지 않습니다.' }
+$source = if ($ExpectedApplication) { (Resolve-Path -LiteralPath $ExpectedApplication).Path } else {
+    Join-Path (Split-Path -Parent $PSScriptRoot) 'bin\WinScriptDoctor.exe'
+}
 $firstInstaller = if ($PreviousInstaller) { (Resolve-Path -LiteralPath $PreviousInstaller).Path } else { $exe }
 $root = Join-Path $env:LOCALAPPDATA 'Programs\WinScript Doctor'
 $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\dev.winscriptdoctor.desktop'
@@ -38,8 +47,6 @@ try {
         }
         '기존 버전 업데이트와 잠긴 파일로 인한 실패 시 복원을 확인했습니다.'
     }
-    $source = Join-Path (Split-Path -Parent $PSScriptRoot) 'bin\WinScriptDoctor.exe'
-    $setupSignature = Get-AuthenticodeSignature -LiteralPath $exe
     if ($setupSignature.Status -ne 'NotSigned') {
         if ($setupSignature.Status -ne 'Valid' -or !$setupSignature.TimeStamperCertificate) { throw '설치 프로그램 서명이 올바르지 않습니다.' }
         foreach ($binary in @($installed,$uninstaller)) {
@@ -48,7 +55,9 @@ try {
                 throw '설치된 실행 파일의 서명 또는 타임스탬프가 올바르지 않습니다.'
             }
         }
-    } elseif ((Get-FileHash -LiteralPath $source).Hash -ne (Get-FileHash -LiteralPath $installed).Hash) {
+    }
+    if (($ExpectedApplication -or $setupSignature.Status -eq 'NotSigned') -and
+        (Get-FileHash -LiteralPath $source).Hash -ne (Get-FileHash -LiteralPath $installed).Hash) {
         throw '설치된 실행 파일이 빌드 결과와 다릅니다.'
     }
     $duplicate = Start-Process -FilePath $exe -ArgumentList '/S' -WindowStyle Hidden -Wait -PassThru

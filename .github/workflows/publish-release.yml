@@ -1,0 +1,77 @@
+name: Publish signed desktop release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version
+        required: true
+        default: '0.1.1'
+        type: string
+      build_run_id:
+        description: Successful native desktop build run ID
+        required: true
+        default: '41962772771'
+        type: string
+
+concurrency:
+  group: publish-desktop-release
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      published: ${{ steps.verify.outputs.published }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test release publication gates
+        shell: pwsh
+        run: ./scripts/test-release.ps1
+      - name: Verify signed Windows installer and all native packages
+        id: verify
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: ./scripts/publish-release.ps1 -Version $env:RELEASE_VERSION -BuildRunId $env:BUILD_RUN_ID
+      - uses: actions/upload-artifact@v7
+        if: steps.verify.outputs.published != 'true'
+        with:
+          name: verified-release
+          path: ${{ steps.verify.outputs.manifest }}
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: verify
+    if: needs.verify.outputs.published != 'true'
+    runs-on: windows-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: verified-release
+          path: verified
+      - name: Publish the unchanged verified draft
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: ./scripts/publish-release.ps1 -Version $env:RELEASE_VERSION -BuildRunId $env:BUILD_RUN_ID -VerifiedManifest verified/verified-release.json -Publish

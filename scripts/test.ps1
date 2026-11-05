@@ -7,6 +7,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Go 테스트가 실패했습니다.' }
     & node --test scripts/desktop.test.mjs
     if ($LASTEXITCODE -ne 0) { throw '설치 패키지 테스트가 실패했습니다.' }
+    & (Join-Path $PSScriptRoot 'test-release.ps1')
     & npm --prefix frontend test
     if ($LASTEXITCODE -ne 0) { throw '프런트엔드 테스트가 실패했습니다.' }
     Push-Location frontend

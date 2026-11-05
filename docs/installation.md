@@ -93,6 +93,8 @@ Windows에서는 기존 scripts/build.ps1, scripts/dev.ps1, scripts/test.ps1을 
 
 서명 패키지를 만들려면 PowerShell 7, Windows SDK SignTool과 Windows 개인 인증서 저장소에 연결된 공개 신뢰 코드 서명 인증서가 필요합니다. `.\scripts\package.ps1 -SigningThumbprint <인증서 지문>`으로 앱, 제거 프로그램, Setup.exe에 SHA-256 서명과 타임스탬프를 적용합니다. 서명을 확인한 파일과 체크섬은 `bin/signed-packages`에 생성됩니다. [SignTool 안내](https://learn.microsoft.com/en-us/windows/win32/seccrypto/signtool)
 
+서명된 Windows 패키지까지 릴리스 초안에 첨부하면 Publish signed desktop release 워크플로로 전체 검증과 공개를 실행할 수 있습니다. [릴리스 절차](releasing.md)
+
 ## 네이티브 빌드 자동화
 
 .github/workflows/desktop-build.yml은 Windows x64, Ubuntu x64·ARM64, Apple Silicon Mac, Intel Mac에서 네이티브 빌드와 패키지를 생성합니다. 수동 실행 또는 기본 브랜치에서 해당 워크플로 파일을 변경할 때 실행합니다. 결과는 빌드 아티팩트로 업로드합니다. 공개 릴리스는 검증 후 별도로 게시합니다.
